@@ -20,9 +20,10 @@ function hasReader(root) {
 
 function findReaderRoot() {
   const knownRoots = [
+    siblingRoot + "/.developer",
     siblingRoot,
-    "/Users/sohma/Library/Mobile Documents/com~apple~CloudDocs/Documents/mitsuho/persus",
-    "/Users/sohma/iCloud_Drive_Shortcut/Documents/mitsuho/persus",
+    "/Users/sohma/Library/Mobile Documents/com~apple~CloudDocs/Documents/mitsuho/persus/.developer",
+    "/Users/sohma/iCloud_Drive_Shortcut/Documents/mitsuho/persus/.developer",
   ];
   for (const root of knownRoots) {
     if (hasReader(root)) {

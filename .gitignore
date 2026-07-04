@@ -12,9 +12,15 @@ scripts/*.applescript
 scripts/*.jxa
 !scripts/open_reader_app.jxa
 !scripts/update_reader_app.jxa
+.developer/scripts/*.applescript
+.developer/scripts/*.jxa
+!.developer/scripts/open_reader_app.jxa
+!.developer/scripts/update_reader_app.jxa
 
 # Runtime state.
 data/build/
+.developer/data/build/
 
 # Download/cache artifacts that are not needed to use the published reader.
 data/vendor/
+.developer/data/vendor/
