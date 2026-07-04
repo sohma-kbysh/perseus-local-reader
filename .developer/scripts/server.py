@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -10,7 +11,7 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs, unquote, urlparse
 
 import text_store
-from fetch_morph import fetch_one, load_forms, load_morphs
+from fetch_morph import cache_path, fetch_one, load_forms, load_morphs, write_output
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app"
@@ -35,6 +36,9 @@ BATCH_STATUS = {
 WORK_JOBS_LOCK = threading.Lock()
 WORK_JOBS = {}
 WORK_CANCELS = set()
+
+DATA_MANAGEMENT_LOCK = threading.Lock()
+SAFE_WORK_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 
@@ -193,6 +197,177 @@ def cancel_work_download(work_urn):
         WORK_CANCELS.add(work_urn)
     return True
 
+def catalog_work_map():
+    return {
+        text_store.work_id(work["urn"]): work
+        for work in text_store.load_catalog().get("works", [])
+    }
+
+
+def data_management_snapshot():
+    catalog = catalog_work_map()
+    works = []
+
+    with DATA_MANAGEMENT_LOCK:
+        text_store.TEXTS_OUT.mkdir(parents=True, exist_ok=True)
+        for path in sorted(text_store.TEXTS_OUT.glob("*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                payload = {}
+
+            metadata = catalog.get(path.stem, {})
+            versions = payload.get("versions") or metadata.get("versions") or []
+            languages = []
+            for version in versions:
+                lang = version.get("lang", "")
+                if lang and lang not in languages:
+                    languages.append(lang)
+
+            stat = path.stat()
+            works.append(
+                {
+                    "id": path.stem,
+                    "urn": payload.get("workUrn") or metadata.get("urn", ""),
+                    "group": payload.get("group") or metadata.get("group", ""),
+                    "title": payload.get("title") or metadata.get("title", ""),
+                    "languages": languages,
+                    "versionCount": len(versions),
+                    "bytes": stat.st_size,
+                    "modified": int(stat.st_mtime),
+                }
+            )
+
+    with MORPH_FETCH_LOCK:
+        morphs = load_morphs()
+        morph_rows = []
+        for form, entry in morphs.items():
+            analyses = entry.get("analyses") or []
+            lemmas = []
+            definitions = []
+            parse_count = 0
+            for analysis in analyses:
+                lemma = analysis.get("lemma", "")
+                definition = analysis.get("definition", "")
+                if lemma and lemma not in lemmas:
+                    lemmas.append(lemma)
+                if definition and definition not in definitions:
+                    definitions.append(definition)
+                parse_count += len(analysis.get("parses") or [])
+
+            morph_rows.append(
+                {
+                    "form": form,
+                    "bare": entry.get("bare", ""),
+                    "lemmas": lemmas,
+                    "definitions": definitions,
+                    "analysisCount": len(analyses),
+                    "parseCount": parse_count,
+                    "bytes": len(json.dumps(entry, ensure_ascii=False).encode("utf-8")),
+                }
+            )
+
+    morph_rows.sort(key=lambda row: row["form"])
+    work_bytes = sum(work["bytes"] for work in works)
+    morph_path = ROOT / "app" / "data" / "morph.json"
+    morph_bytes = morph_path.stat().st_size if morph_path.exists() else 0
+
+    return {
+        "works": works,
+        "morphs": morph_rows,
+        "summary": {
+            "workCount": len(works),
+            "workBytes": work_bytes,
+            "morphCount": len(morph_rows),
+            "morphBytes": morph_bytes,
+            "totalBytes": work_bytes + morph_bytes,
+        },
+    }
+
+
+def active_work_ids():
+    with WORK_JOBS_LOCK:
+        active = {
+            text_store.work_id(urn)
+            for urn, job in WORK_JOBS.items()
+            if job.get("state") == "running"
+        }
+
+    batch = batch_status_snapshot()
+    if batch.get("state") in {"starting", "running", "stopping"} and batch.get("urn"):
+        active.add(text_store.work_id(batch["urn"]))
+    return active
+
+
+def delete_work_data(work_ids):
+    deleted = []
+    skipped = []
+    active = active_work_ids()
+
+    with DATA_MANAGEMENT_LOCK:
+        for work_id in work_ids:
+            if not isinstance(work_id, str) or not SAFE_WORK_ID.fullmatch(work_id):
+                skipped.append({"id": str(work_id), "reason": "invalid id"})
+                continue
+            if work_id in active:
+                skipped.append({"id": work_id, "reason": "処理中です"})
+                continue
+
+            path = text_store.TEXTS_OUT / f"{work_id}.json"
+            if not path.exists():
+                skipped.append({"id": work_id, "reason": "見つかりません"})
+                continue
+
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                payload = {}
+
+            path.unlink()
+
+            for version in payload.get("versions") or []:
+                urn = version.get("urn", "")
+                if not urn:
+                    continue
+                try:
+                    text_store.version_xml_path(urn).unlink(missing_ok=True)
+                except (ValueError, OSError):
+                    pass
+
+            deleted.append(work_id)
+
+    return deleted, skipped
+
+
+def delete_morph_data(forms):
+    deleted = []
+    skipped = []
+
+    with MORPH_FETCH_LOCK:
+        morphs = load_morphs()
+        for form in forms:
+            if not isinstance(form, str):
+                skipped.append({"id": str(form), "reason": "invalid form"})
+                continue
+
+            entry = morphs.pop(form, None)
+            if entry is None:
+                skipped.append({"id": form, "reason": "見つかりません"})
+                continue
+
+            beta = entry.get("beta", "")
+            if beta:
+                try:
+                    cache_path(beta).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            deleted.append(form)
+
+        if deleted:
+            write_output(morphs)
+
+    return deleted, skipped
+
 
 class ReaderHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -210,6 +385,9 @@ class ReaderHandler(SimpleHTTPRequestHandler):
         global last_access
         last_access = time.time()
         parsed = urlparse(self.path)
+        if parsed.path == "/api/data/manager":
+            self.send_json(data_management_snapshot())
+            return
         if parsed.path == "/api/morph/fetch-all/status":
             self.send_json(batch_status_snapshot())
             return
@@ -234,6 +412,38 @@ class ReaderHandler(SimpleHTTPRequestHandler):
         last_access = time.time()
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
+        if parsed.path == "/api/data/delete":
+            origin = self.headers.get("Origin", "")
+            if origin and not (
+                origin.startswith("http://127.0.0.1:")
+                or origin.startswith("http://localhost:")
+            ):
+                self.send_json({"error": "forbidden origin"}, status=403)
+                return
+
+            try:
+                payload = self.read_json_body()
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
+
+            works = payload.get("works") or []
+            morphs = payload.get("morphs") or []
+            if not isinstance(works, list) or not isinstance(morphs, list):
+                self.send_json({"error": "works and morphs must be arrays"}, status=400)
+                return
+            if len(works) + len(morphs) > 10000:
+                self.send_json({"error": "too many items"}, status=400)
+                return
+
+            deleted_works, skipped_works = delete_work_data(works)
+            deleted_morphs, skipped_morphs = delete_morph_data(morphs)
+            self.send_json({
+                "deletedWorks": deleted_works,
+                "deletedMorphs": deleted_morphs,
+                "skipped": skipped_works + skipped_morphs,
+            })
+            return
         if parsed.path == "/api/work/download":
             urn = unquote(params.get("urn", [""])[0])
             if not urn:
@@ -305,6 +515,24 @@ class ReaderHandler(SimpleHTTPRequestHandler):
             self.send_json({"error": f"Perseus HTTP error: {error.code}"}, status=502)
         except Exception as error:
             self.send_json({"error": str(error)}, status=500)
+
+    def read_json_body(self):
+        content_type = self.headers.get("Content-Type", "")
+        if not content_type.lower().startswith("application/json"):
+            raise ValueError("Content-Type must be application/json")
+
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError as error:
+            raise ValueError("invalid Content-Length") from error
+
+        if length <= 0 or length > 2 * 1024 * 1024:
+            raise ValueError("invalid request body size")
+
+        try:
+            return json.loads(self.rfile.read(length).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError("invalid JSON body") from error
 
     def send_json(self, payload, status=200):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
