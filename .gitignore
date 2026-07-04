@@ -32,3 +32,4 @@ data/build/
 # Download/cache artifacts that are not needed to use the published reader.
 data/vendor/
 .developer/data/vendor/
+.developer/swift-app/.build/

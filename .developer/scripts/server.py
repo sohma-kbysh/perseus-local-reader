@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import sys
 import threading
 import time
@@ -315,10 +316,35 @@ class ReaderHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
 
+def parse_server_args():
+    port = 8000
+    parent_pid = None
+    args = iter(sys.argv[1:])
+
+    for arg in args:
+        if arg == "--parent-pid":
+            try:
+                parent_pid = int(next(args))
+            except (StopIteration, ValueError):
+                raise SystemExit("--parent-pid requires an integer PID")
+        else:
+            try:
+                port = int(arg)
+            except ValueError:
+                raise SystemExit(f"Unknown server argument: {arg}")
+
+    return port, parent_pid
+
+
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    port, parent_pid = parse_server_args()
     server = ThreadingHTTPServer(("127.0.0.1", port), ReaderHandler)
-    start_idle_shutdown_watch(server)
+
+    if parent_pid is None:
+        start_idle_shutdown_watch(server)
+    else:
+        start_parent_shutdown_watch(server, parent_pid)
+
     print(f"Serving Perseus Local Reader at http://127.0.0.1:{port}/")
     server.serve_forever()
 
@@ -330,6 +356,22 @@ def start_idle_shutdown_watch(server):
             if time.time() - last_access > IDLE_TIMEOUT_SECONDS:
                 server.shutdown()
                 return
+
+    thread = threading.Thread(target=watch, daemon=True)
+    thread.start()
+
+
+def start_parent_shutdown_watch(server, parent_pid):
+    def watch():
+        while True:
+            time.sleep(2)
+            try:
+                os.kill(parent_pid, 0)
+            except ProcessLookupError:
+                server.shutdown()
+                return
+            except PermissionError:
+                pass
 
     thread = threading.Thread(target=watch, daemon=True)
     thread.start()
