@@ -2,7 +2,7 @@
 
 ## 日本語版のガイド **(English explanation below)**
 
-Perseus プロジェクトが公開しているデータを用いた、古典ギリシア語テキストのローカル読書環境です。Perseus Digital Library 所蔵のギリシア語作品(約800作品)とその翻訳を検索し、手元にダウンロードして読むことができます。**(English explanation below)**
+Perseus プロジェクトが公開しているデータを用いた、古典ギリシア語テキストのローカル読書環境です。Perseus Digital Library 所蔵のギリシア語作品(約800作品)とその翻訳を検索し、手元にダウンロードして読むことができます。
 
 ## 使い方（使用者の方へ）
 
