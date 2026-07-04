@@ -24,7 +24,11 @@ const LANG_LABELS = {
 
 const READER_BAR_COLLAPSED_KEY = "perseusReaderBarCollapsed";
 const TEXT_SIZE_KEY = "perseusReaderTextSize";
-const TEXT_SIZES = new Set(["small", "medium", "large", "xlarge"]);
+const CUSTOM_TEXT_SIZE_KEY = "perseusReaderCustomTextSize";
+const TEXT_SIZES = new Set(["small", "medium", "large", "xlarge", "custom"]);
+const MIN_CUSTOM_TEXT_SIZE = 8;
+const MAX_CUSTOM_TEXT_SIZE = 120;
+const DEFAULT_CUSTOM_TEXT_SIZE = 21;
 
 function workIdOf(urn) {
   return urn.split(":").pop();
@@ -97,27 +101,90 @@ async function main() {
   setupSelectedMorphFetch();
 }
 
+function normalizeCustomTextSize(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_CUSTOM_TEXT_SIZE;
+  }
+  return Math.min(
+    MAX_CUSTOM_TEXT_SIZE,
+    Math.max(MIN_CUSTOM_TEXT_SIZE, Math.round(parsed)),
+  );
+}
+
 function setupTextSizeControls() {
+  const customInput = document.getElementById("customTextSize");
+  const customButton = document.getElementById("applyCustomTextSize");
+  const savedCustom = normalizeCustomTextSize(
+    window.localStorage.getItem(CUSTOM_TEXT_SIZE_KEY) ||
+      DEFAULT_CUSTOM_TEXT_SIZE,
+  );
+  customInput.value = String(savedCustom);
+
   const saved = window.localStorage.getItem(TEXT_SIZE_KEY) || "medium";
-  setTextSize(TEXT_SIZES.has(saved) ? saved : "medium");
-  document.querySelectorAll(".text-size-option").forEach((button) => {
-    button.addEventListener("click", () => {
-      const size = button.dataset.size;
-      setTextSize(size);
-      window.localStorage.setItem(TEXT_SIZE_KEY, size);
-      document.getElementById("textSizeMenu").open = false;
+  setTextSize(TEXT_SIZES.has(saved) ? saved : "medium", savedCustom);
+
+  document
+    .querySelectorAll(".text-size-option[data-size]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        const size = button.dataset.size;
+        setTextSize(size);
+        window.localStorage.setItem(TEXT_SIZE_KEY, size);
+        document.getElementById("textSizeMenu").open = false;
+      });
     });
+
+  const applyCustomSize = () => {
+    const size = normalizeCustomTextSize(customInput.value);
+    customInput.value = String(size);
+    window.localStorage.setItem(CUSTOM_TEXT_SIZE_KEY, String(size));
+    window.localStorage.setItem(TEXT_SIZE_KEY, "custom");
+    setTextSize("custom", size);
+    document.getElementById("textSizeMenu").open = false;
+  };
+
+  customButton.addEventListener("click", applyCustomSize);
+  customInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyCustomSize();
+    }
   });
 }
 
-function setTextSize(size) {
+function setTextSize(size, customSize = null) {
   const normalized = TEXT_SIZES.has(size) ? size : "medium";
   document.body.dataset.textSize = normalized;
-  document.querySelectorAll(".text-size-option").forEach((button) => {
-    const active = button.dataset.size === normalized;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", active ? "true" : "false");
-  });
+
+  if (normalized === "custom") {
+    const pixels = normalizeCustomTextSize(
+      customSize ??
+        window.localStorage.getItem(CUSTOM_TEXT_SIZE_KEY) ??
+        DEFAULT_CUSTOM_TEXT_SIZE,
+    );
+    document.documentElement.style.setProperty(
+      "--reader-custom-font-size",
+      `${pixels}px`,
+    );
+    document.getElementById("customTextSize").value = String(pixels);
+  }
+
+  document
+    .querySelectorAll(".text-size-option[data-size]")
+    .forEach((button) => {
+      const active = button.dataset.size === normalized;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+
+  const customButton = document.getElementById("applyCustomTextSize");
+  const customActive = normalized === "custom";
+  customButton.classList.toggle("active", customActive);
+  customButton.setAttribute(
+    "aria-pressed",
+    customActive ? "true" : "false",
+  );
 }
 
 function setupReaderBarToggle() {
@@ -196,6 +263,9 @@ function selectVersion(index, chunk) {
   const isGreek = currentVersion().lang === "grc";
   document.getElementById("morphPanel").hidden = !isGreek;
   document.getElementById("morphMenu").hidden = !isGreek;
+  document
+    .getElementById("readerActionTools")
+    .classList.toggle("download-hidden", !isGreek);
   document.getElementById("layout").classList.toggle("no-panel", !isGreek);
   document.getElementById("text").setAttribute(
     "lang",

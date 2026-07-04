@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Perseus Local Reader</title>
-    <link rel="stylesheet" href="./styles.css?v=plr-12" />
+    <link rel="stylesheet" href="./styles.css?v=plr-14" />
   </head>
   <body>
     <header class="topbar">
@@ -52,19 +52,43 @@
               <button id="workSearchButton" class="tool-button" type="button">検索</button>
             </div>
 
-            <details class="text-size-menu" id="textSizeMenu">
-              <summary class="text-size-trigger" title="本文の文字サイズを変えます">
-                <span>Aa</span>
-              </summary>
-              <div class="text-size-tools" aria-label="Text size controls">
-                <button class="text-size-option" type="button" data-size="small">小</button>
-                <button class="text-size-option" type="button" data-size="medium">標準</button>
-                <button class="text-size-option" type="button" data-size="large">大</button>
-                <button class="text-size-option" type="button" data-size="xlarge">特大</button>
-              </div>
-            </details>
+            <div class="reader-action-tools" id="readerActionTools">
+              <details class="text-size-menu" id="textSizeMenu">
+                <summary class="text-size-trigger" title="本文の文字サイズを変えます">
+                  <span>Aa</span>
+                </summary>
+                <div class="text-size-tools" aria-label="Text size controls">
+                  <button class="text-size-option" type="button" data-size="small">小</button>
+                  <button class="text-size-option" type="button" data-size="medium">標準</button>
+                  <button class="text-size-option" type="button" data-size="large">大</button>
+                  <button class="text-size-option" type="button" data-size="xlarge">特大</button>
 
-            <details class="download-menu" id="morphMenu">
+                  <div class="custom-text-size">
+                    <label for="customTextSize">カスタム</label>
+                    <div class="custom-text-size-input">
+                      <input
+                        id="customTextSize"
+                        type="number"
+                        min="8"
+                        max="120"
+                        step="1"
+                        inputmode="numeric"
+                        aria-label="本文のカスタム文字サイズ"
+                      />
+                      <span aria-hidden="true">px</span>
+                      <button
+                        id="applyCustomTextSize"
+                        class="text-size-option custom-text-size-apply"
+                        type="button"
+                      >
+                        適用
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              <details class="download-menu" id="morphMenu">
             <summary class="download-trigger" title="形態解析データの取得メニューを開きます">
               <span class="download-trigger-icon" aria-hidden="true">↓</span>
               <span>Download</span>
@@ -123,7 +147,8 @@
                 </span>
               </section>
             </div>
-            </details>
+              </details>
+            </div>
           </div>
         </div>
       </div>
@@ -143,6 +168,6 @@
       </aside>
     </main>
 
-    <script src="./reader.js?v=plr-12"></script>
+    <script src="./reader.js?v=plr-14"></script>
   </body>
 </html>
