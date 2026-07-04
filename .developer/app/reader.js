@@ -1,3 +1,9 @@
+let workUrn = "";
+let workData = null;
+let versionIndex = 0;
+let chunkIndex = 0;
+let activeQuery = "";
+
 let fetchAllPollTimer = null;
 let lastFetchAllState = null;
 let bulkMorphFetchActive = false;
@@ -5,45 +11,508 @@ let selectedMorphWords = [];
 let selectedMorphFetchRunning = false;
 let selectedMorphStopRequested = false;
 
+const LANG_LABELS = {
+  grc: "ギリシア語",
+  eng: "英訳",
+  lat: "ラテン語",
+  fre: "フランス語",
+  deu: "ドイツ語",
+  ger: "ドイツ語",
+  ita: "イタリア語",
+  ara: "アラビア語",
+};
+
+const READER_BAR_COLLAPSED_KEY = "perseusReaderBarCollapsed";
+const TEXT_SIZE_KEY = "perseusReaderTextSize";
+const TEXT_SIZES = new Set(["small", "medium", "large", "xlarge"]);
+
+function workIdOf(urn) {
+  return urn.split(":").pop();
+}
+
+function normalizeText(text) {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ᪰-᫿᷀-᷿]/g, "")
+    .toLowerCase();
+}
+
+const GREEK_TO_BARE = {
+  α: "a", β: "b", γ: "g", δ: "d", ε: "e", ζ: "z", η: "h",
+  θ: "q", ι: "i", κ: "k", λ: "l", μ: "m", ν: "n", ξ: "c",
+  ο: "o", π: "p", ρ: "r", σ: "s", ς: "s", τ: "t", υ: "u",
+  φ: "f", χ: "x", ψ: "y", ω: "w",
+};
+
+function greekToBare(word) {
+  const stripped = normalizeText(word).replace(/[᾿ʼ’']/g, "");
+  let bare = "";
+  for (const ch of stripped) {
+    bare += GREEK_TO_BARE[ch] || "";
+  }
+  return bare;
+}
+
+function isAsciiQuery(text) {
+  return /^[a-z]+$/i.test(text);
+}
+
+function versionSourceUrl(version) {
+  return `https://scaife.perseus.org/reader/${encodeURI(version.urn)}/`;
+}
+
 async function main() {
-  const response = await fetch("./data/apology.json");
-  const data = await response.json();
-  renderNav(data.sections);
-  renderText(data.sections);
-  bindWords(data);
+  const params = new URLSearchParams(window.location.search);
+  workUrn = params.get("urn") || "";
+  if (!workUrn) {
+    window.location.replace("./index.html");
+    return;
+  }
+
+  const response = await fetch(`./data/texts/${workIdOf(workUrn)}.json`);
+  if (!response.ok) {
+    throw new Error("この作品はまだダウンロードされていません。ライブラリから開いてください。");
+  }
+  workData = await response.json();
+
+  document.title = `${workData.group}, ${workData.title} — Perseus Local Reader`;
+  document.getElementById("workTitle").textContent =
+    `${workData.group}, ${workData.title}`;
+  setupReaderBarToggle();
+  setupTextSizeControls();
+
+  const requestedVersion = params.get("version");
+  versionIndex = Math.max(
+    0,
+    workData.versions.findIndex((v) => v.urn === requestedVersion),
+  );
+  if (versionIndex === -1) {
+    versionIndex = 0;
+  }
+
+  renderVersionTabs();
+  selectVersion(versionIndex, Number(params.get("chunk")) || 0);
+  setupWorkSearch();
   await setupFetchAllMorphs();
   setupSelectedMorphFetch();
 }
 
-function renderNav(sections) {
-  const nav = document.getElementById("sectionNav");
-  nav.innerHTML = sections
-    .map((section) => `<a href="#section-${section.section}">${section.section}</a>`)
-    .join("");
+function setupTextSizeControls() {
+  const saved = window.localStorage.getItem(TEXT_SIZE_KEY) || "medium";
+  setTextSize(TEXT_SIZES.has(saved) ? saved : "medium");
+  document.querySelectorAll(".text-size-option").forEach((button) => {
+    button.addEventListener("click", () => {
+      const size = button.dataset.size;
+      setTextSize(size);
+      window.localStorage.setItem(TEXT_SIZE_KEY, size);
+      document.getElementById("textSizeMenu").open = false;
+    });
+  });
 }
 
-function renderText(sections) {
-  const text = document.getElementById("text");
-  text.innerHTML = sections
+function setTextSize(size) {
+  const normalized = TEXT_SIZES.has(size) ? size : "medium";
+  document.body.dataset.textSize = normalized;
+  document.querySelectorAll(".text-size-option").forEach((button) => {
+    const active = button.dataset.size === normalized;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function setupReaderBarToggle() {
+  const params = new URLSearchParams(window.location.search);
+  const button = document.getElementById("toggleReaderBar");
+  const collapsed =
+    params.get("bar") === "collapsed" ||
+    window.localStorage.getItem(READER_BAR_COLLAPSED_KEY) === "1";
+  setReaderBarCollapsed(collapsed);
+  button.addEventListener("click", () => {
+    const next = !document.body.classList.contains("reader-bar-collapsed");
+    setReaderBarCollapsed(next);
+    window.localStorage.setItem(READER_BAR_COLLAPSED_KEY, next ? "1" : "0");
+  });
+}
+
+function setReaderBarCollapsed(collapsed) {
+  const button = document.getElementById("toggleReaderBar");
+  document.body.classList.toggle("reader-bar-collapsed", collapsed);
+  button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  button.title = collapsed ? "上部バーを開く" : "上部バーをしまう";
+  button.textContent = collapsed ? "↓" : "↑";
+}
+
+function currentVersion() {
+  return workData.versions[versionIndex];
+}
+
+function currentChunk() {
+  return currentVersion().chunks[chunkIndex];
+}
+
+function renderVersionTabs() {
+  const tabs = document.getElementById("versionTabs");
+  const langTotals = {};
+  for (const version of workData.versions) {
+    langTotals[version.lang] = (langTotals[version.lang] || 0) + 1;
+  }
+  const langSeen = {};
+  tabs.innerHTML = workData.versions
+    .map((version, index) => {
+      langSeen[version.lang] = (langSeen[version.lang] || 0) + 1;
+      let langLabel = LANG_LABELS[version.lang] || version.lang;
+      if (langTotals[version.lang] > 1) {
+        langLabel += ` ${langSeen[version.lang]}`;
+      }
+      const extra =
+        version.label && version.label !== workData.title
+          ? ` <span class="tab-sub" lang="${version.lang === "grc" ? "grc" : ""}">${escapeHtml(version.label)}</span>`
+          : "";
+      return `
+        <button
+          class="version-tab${index === versionIndex ? " active" : ""}"
+          type="button"
+          role="tab"
+          data-index="${index}"
+          title="${escapeHtml(version.description || "")}"
+        >${escapeHtml(langLabel)}${extra}</button>
+      `;
+    })
+    .join("");
+  tabs.querySelectorAll(".version-tab").forEach((tab) => {
+    tab.addEventListener("click", () => selectVersion(Number(tab.dataset.index), 0));
+  });
+}
+
+function selectVersion(index, chunk) {
+  versionIndex = index;
+  chunkIndex = Math.min(Math.max(chunk, 0), currentVersion().chunks.length - 1);
+  document
+    .querySelectorAll(".version-tab")
+    .forEach((tab) =>
+      tab.classList.toggle("active", Number(tab.dataset.index) === versionIndex),
+    );
+
+  const isGreek = currentVersion().lang === "grc";
+  document.getElementById("morphPanel").hidden = !isGreek;
+  document.getElementById("morphMenu").hidden = !isGreek;
+  document.getElementById("layout").classList.toggle("no-panel", !isGreek);
+  document.getElementById("text").setAttribute(
+    "lang",
+    currentVersion().lang === "ger" ? "de" : currentVersion().lang,
+  );
+  const meta = document.getElementById("workMeta");
+  const description = currentVersion().description || "";
+  const sourceUrl = versionSourceUrl(currentVersion());
+  meta.innerHTML = description
+    ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(description)}</a>`
+    : "";
+
+  renderChunkControls();
+  renderChunk();
+}
+
+function renderChunkControls() {
+  const controls = document.getElementById("chunkControls");
+  const select = document.getElementById("chunkSelect");
+  const chunks = currentVersion().chunks;
+  controls.hidden = chunks.length <= 1;
+  if (chunks.length <= 1) {
+    return;
+  }
+  select.innerHTML = chunks
     .map(
-      (section) => `
-        <section class="section" id="section-${section.section}">
-          <h2>Section ${section.section}</h2>
-          <p>${section.html}</p>
-        </section>
-      `,
+      (chunk, index) =>
+        `<option value="${index}"${index === chunkIndex ? " selected" : ""}>${escapeHtml(chunk.label || `Part ${chunk.n}`)}</option>`,
+    )
+    .join("");
+  select.onchange = () => {
+    chunkIndex = Number(select.value);
+    renderChunk();
+  };
+  document.getElementById("prevChunk").onclick = () => stepChunk(-1);
+  document.getElementById("nextChunk").onclick = () => stepChunk(1);
+}
+
+function stepChunk(delta) {
+  const next = chunkIndex + delta;
+  if (next < 0 || next >= currentVersion().chunks.length) {
+    return;
+  }
+  chunkIndex = next;
+  document.getElementById("chunkSelect").value = String(chunkIndex);
+  renderChunk();
+  window.scrollTo(0, 0);
+}
+
+function renderChunk() {
+  const chunk = currentChunk();
+  const text = document.getElementById("text");
+  text.innerHTML = chunk.html;
+  renderAnchorNav(chunk);
+  bindWords();
+  updateChunkButtons();
+  if (activeQuery) {
+    highlightMatches(text, activeQuery);
+  }
+}
+
+function updateChunkButtons() {
+  const chunks = currentVersion().chunks;
+  const prev = document.getElementById("prevChunk");
+  const next = document.getElementById("nextChunk");
+  prev.disabled = chunkIndex === 0;
+  next.disabled = chunkIndex >= chunks.length - 1;
+}
+
+function renderAnchorNav(chunk) {
+  const nav = document.getElementById("sectionNav");
+  const anchors = chunk.anchors || [];
+  const maxShown = 400;
+  const seen = new Set();
+  const compactAnchors = [];
+  for (const anchor of anchors.slice(0, maxShown)) {
+    const label = compactAnchorLabel(anchor.label);
+    if (!label || seen.has(label)) {
+      continue;
+    }
+    seen.add(label);
+    compactAnchors.push({ ...anchor, label });
+  }
+  nav.innerHTML = compactAnchors
+    .map(
+      (anchor) =>
+        `<a href="#${escapeHtml(anchor.id)}" title="${escapeHtml(anchor.label)}">${escapeHtml(anchor.label)}</a>`,
     )
     .join("");
 }
 
-function bindWords(data) {
-  document.querySelectorAll(".word").forEach((button) => {
-    button.addEventListener("click", () => {
-      document.querySelectorAll(".word.active").forEach((el) => el.classList.remove("active"));
-      button.classList.add("active");
+function compactAnchorLabel(label) {
+  const text = String(label || "").trim();
+  const match = text.match(/\d+/);
+  if (match) {
+    return match[0];
+  }
+  return text.length <= 3 ? text : "";
+}
+
+function bindWords() {
+  document.querySelectorAll("#text .word").forEach((link) => {
+    link.addEventListener("click", () => {
+      document
+        .querySelectorAll("#text .word.active")
+        .forEach((el) => el.classList.remove("active"));
+      link.classList.add("active");
+      const form = link.textContent;
+      const frame = document.getElementById("morphFrame");
+      frame.src =
+        `./morph.html?form=${encodeURIComponent(form)}` +
+        `&bare=${encodeURIComponent(greekToBare(form))}` +
+        `&urn=${encodeURIComponent(workUrn)}`;
     });
   });
 }
+
+/* ---------------- in-work search ---------------- */
+
+const plainTextCache = new Map();
+
+function chunkPlainText(vIndex, cIndex) {
+  const key = `${vIndex}:${cIndex}`;
+  if (!plainTextCache.has(key)) {
+    const html = workData.versions[vIndex].chunks[cIndex].html;
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+    plainTextCache.set(key, doc.body.textContent.replace(/\s+/g, " "));
+  }
+  return plainTextCache.get(key);
+}
+
+function setupWorkSearch() {
+  const box = document.getElementById("workSearchBox");
+  const button = document.getElementById("workSearchButton");
+  const run = () => executeWorkSearch(box.value.trim());
+  button.addEventListener("click", run);
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      run();
+    }
+  });
+}
+
+function executeWorkSearch(rawQuery) {
+  const container = document.getElementById("searchResults");
+  activeQuery = rawQuery;
+  if (!rawQuery) {
+    container.hidden = true;
+    container.innerHTML = "";
+    renderChunk();
+    return;
+  }
+
+  const query = normalizeText(rawQuery);
+  const bareQuery = query.replace(/[^a-z]/g, "");
+  const useBareGreekSearch = currentVersion().lang === "grc" && isAsciiQuery(bareQuery);
+  const chunks = currentVersion().chunks;
+  const results = [];
+  let total = 0;
+
+  chunks.forEach((chunk, cIndex) => {
+    const plain = chunkPlainText(versionIndex, cIndex);
+    const normalized = normalizeText(plain);
+    const bare = useBareGreekSearch ? greekToBare(plain) : "";
+    let count = 0;
+    const snippets = [];
+    let position = normalized.indexOf(query);
+    while (position !== -1) {
+      count += 1;
+      if (snippets.length < 3) {
+        const start = Math.max(0, position - 40);
+        const end = Math.min(plain.length, position + query.length + 40);
+        snippets.push(plain.slice(start, end));
+      }
+      position = normalized.indexOf(query, position + query.length);
+    }
+    if (useBareGreekSearch && count === 0) {
+      let barePosition = bare.indexOf(bareQuery);
+      while (barePosition !== -1) {
+        count += 1;
+        if (snippets.length < 3) {
+          snippets.push(plain.slice(0, 120));
+        }
+        barePosition = bare.indexOf(bareQuery, barePosition + bareQuery.length);
+      }
+    }
+    if (count > 0) {
+      total += count;
+      results.push({ cIndex, count, snippets, label: chunk.label || "本文" });
+    }
+  });
+
+  if (!results.length) {
+    container.hidden = false;
+    container.innerHTML = `<p class="search-summary">「${escapeHtml(rawQuery)}」は見つかりませんでした。<em>ヒント: ギリシア語はアクセントなし・ラテン文字転写でも検索できます。</em></p>`;
+    renderChunk();
+    return;
+  }
+
+  container.hidden = false;
+  container.innerHTML = `
+    <p class="search-summary">
+      「${escapeHtml(rawQuery)}」: ${total} 件 (${results.length} 箇所)
+      <button id="clearSearch" class="tool-button" type="button">検索を解除</button>
+    </p>
+    <ul class="search-hits">
+      ${results
+        .map(
+          (result) => `
+            <li>
+              <a href="#" data-chunk="${result.cIndex}" class="search-hit">
+                <strong>${escapeHtml(result.label)}</strong>
+                <span class="hit-count">${result.count} 件</span>
+              </a>
+              <span class="hit-snippet">…${escapeHtml(result.snippets[0] || "")}…</span>
+            </li>
+          `,
+        )
+        .join("")}
+    </ul>
+  `;
+
+  container.querySelectorAll(".search-hit").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      chunkIndex = Number(link.dataset.chunk);
+      const select = document.getElementById("chunkSelect");
+      if (select) {
+        select.value = String(chunkIndex);
+      }
+      renderChunk();
+      const firstMark = document.querySelector("#text mark.search-match, #text .word.search-match-word");
+      if (firstMark) {
+        firstMark.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  });
+  document.getElementById("clearSearch").addEventListener("click", () => {
+    document.getElementById("workSearchBox").value = "";
+    executeWorkSearch("");
+  });
+
+  renderChunk();
+  const firstMark = document.querySelector("#text mark.search-match, #text .word.search-match-word");
+  if (firstMark) {
+    firstMark.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function highlightMatches(rootElement, rawQuery) {
+  const query = normalizeText(rawQuery);
+  if (!query) {
+    return;
+  }
+  rootElement
+    .querySelectorAll(".word.search-match-word")
+    .forEach((word) => word.classList.remove("search-match-word"));
+  const walker = document.createTreeWalker(rootElement, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode);
+  }
+  for (const node of textNodes) {
+    const original = node.nodeValue;
+    // Map normalized characters back to original string indexes.
+    const map = [];
+    let normalized = "";
+    for (let index = 0; index < original.length; index += 1) {
+      const decomposed = original[index].normalize("NFD");
+      for (const ch of decomposed) {
+        if (/[̀-ͯ᪰-᫿᷀-᷿]/.test(ch)) {
+          continue;
+        }
+        normalized += ch.toLowerCase();
+        map.push(index);
+      }
+    }
+    const ranges = [];
+    let position = normalized.indexOf(query);
+    while (position !== -1) {
+      const startOriginal = map[position];
+      const endNormalized = position + query.length - 1;
+      const endOriginal = map[endNormalized];
+      ranges.push([startOriginal, endOriginal + 1]);
+      position = normalized.indexOf(query, position + query.length);
+    }
+    if (!ranges.length) {
+      continue;
+    }
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    for (const [start, end] of ranges) {
+      if (start > cursor) {
+        fragment.appendChild(document.createTextNode(original.slice(cursor, start)));
+      }
+      const mark = document.createElement("mark");
+      mark.className = "search-match";
+      mark.textContent = original.slice(start, end);
+      fragment.appendChild(mark);
+      cursor = end;
+    }
+    if (cursor < original.length) {
+      fragment.appendChild(document.createTextNode(original.slice(cursor)));
+    }
+    node.parentNode.replaceChild(fragment, node);
+  }
+  const bareQuery = query.replace(/[^a-z]/g, "");
+  if (currentVersion().lang === "grc" && isAsciiQuery(bareQuery)) {
+    rootElement.querySelectorAll(".word").forEach((word) => {
+      if (greekToBare(word.textContent).includes(bareQuery)) {
+        word.classList.add("search-match-word");
+      }
+    });
+  }
+}
+
+/* ---------------- morphology download (per work) ---------------- */
 
 async function setupFetchAllMorphs() {
   const button = document.getElementById("fetchAllMorphs");
@@ -62,7 +531,7 @@ async function setupFetchAllMorphs() {
 
 async function startFetchAllMorphs() {
   const confirmed = window.confirm(
-    "本文に現れる未取得の語形を、Perseusから順番に取得します。\n\n" +
+    "この作品に現れる未取得の語形を、Perseusから順番に取得します。\n\n" +
       "語形数とPerseus側の応答状況によっては、数分から数十分かかります。開始しますか？",
   );
   if (!confirmed) {
@@ -74,10 +543,13 @@ async function startFetchAllMorphs() {
   setFetchAllMessage("一括取得を開始しています...");
 
   try {
-    const response = await fetch("/api/morph/fetch-all", {
-      method: "POST",
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `/api/morph/fetch-all?urn=${encodeURIComponent(workUrn)}`,
+      {
+        method: "POST",
+        cache: "no-store",
+      },
+    );
     const payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.error || `HTTP ${response.status}`);
@@ -127,13 +599,14 @@ function applyFetchAllStatus(status) {
   const progress = document.getElementById("fetchAllProgress");
   const previousState = lastFetchAllState;
   const active = ["starting", "running", "stopping"].includes(status.state);
+  const isThisWork = !status.urn || status.urn === workUrn;
 
   bulkMorphFetchActive = active;
   button.disabled = active || selectedMorphFetchRunning;
-  stopButton.hidden = !active;
+  stopButton.hidden = !active || !isThisWork;
   stopButton.disabled = status.state === "stopping";
 
-  if (status.total > 0) {
+  if (status.total > 0 && isThisWork) {
     progress.hidden = false;
     progress.max = status.total;
     progress.value = Math.min(status.completed || 0, status.total);
@@ -141,10 +614,12 @@ function applyFetchAllStatus(status) {
     progress.hidden = true;
   }
 
-  if (status.state === "idle") {
+  if (active && !isThisWork) {
+    setFetchAllMessage("別の作品の一括取得が進行中です。完了までお待ちください。");
+  } else if (status.state === "idle") {
     setFetchAllMessage("未取得の語形だけを取得します。");
   } else if (status.state === "starting") {
-    setFetchAllMessage("本文中の語形を確認しています...");
+    setFetchAllMessage("この作品の語形を確認しています...");
   } else if (status.state === "running") {
     const current = status.current ? ` — ${status.current}` : "";
     setFetchAllMessage(
@@ -177,12 +652,7 @@ function applyFetchAllStatus(status) {
     ["done", "stopped"].includes(status.state) &&
     ["starting", "running", "stopping"].includes(previousState)
   ) {
-    const frame = document.getElementById("morphFrame");
-    try {
-      frame.contentWindow.location.reload();
-    } catch {
-      // The next word click will load the newly cached data.
-    }
+    reloadMorphFrame();
   }
 
   lastFetchAllState = status.state;
@@ -286,10 +756,9 @@ function collectSelectedMorphWords() {
       return;
     }
 
-    const form = element.dataset.form;
-    const bare = element.dataset.bare || "";
+    const form = element.textContent;
     if (form && !unique.has(form)) {
-      unique.set(form, { form, bare });
+      unique.set(form, { form, bare: greekToBare(form) });
     }
   });
   return Array.from(unique.values());
@@ -464,5 +933,5 @@ function escapeHtml(value) {
 }
 
 main().catch((error) => {
-  document.getElementById("text").textContent = `Failed to load local data: ${error.message}`;
+  document.getElementById("text").textContent = `読み込みに失敗しました: ${error.message}`;
 });

@@ -3,17 +3,39 @@ async function main() {
   const form = params.get("form");
   const bare = params.get("bare");
   const section = params.get("section");
+  const urn = params.get("urn");
   if (!form || !bare) {
     return;
   }
 
-  const response = await fetch("./data/apology.json");
-  const data = await response.json();
+  const data = await loadWordData(urn);
   const morphData = await loadMorphData();
   const word = { form, bare, section };
   document.getElementById("morph").innerHTML = renderMorph(data, morphData, word);
   if (!morphData.forms?.[form]?.analyses?.length) {
     await fetchAdHocMorph(data, morphData, word);
+  }
+}
+
+async function loadWordData(urn) {
+  const empty = { words: {}, lemmas: {} };
+  if (!urn) {
+    return empty;
+  }
+  try {
+    const workId = urn.split(":").pop();
+    const response = await fetch(`./data/texts/${workId}.json`);
+    if (!response.ok) {
+      return empty;
+    }
+    const work = await response.json();
+    const greek = work.versions.find((version) => version.lang === "grc");
+    return {
+      words: greek?.words || {},
+      lemmas: greek?.lemmas || {},
+    };
+  } catch {
+    return empty;
   }
 }
 
@@ -69,7 +91,7 @@ function renderMorph(data, morphData, word) {
 
   return `
     <h2 lang="grc">${escapeHtml(word.form)}</h2>
-    <div class="meta">Section ${escapeHtml(word.section || "-")} / local morph page</div>
+    <div class="meta">${word.section ? `Section ${escapeHtml(word.section)} / ` : ""}local morph page</div>
     <div class="row"><div class="label">元サイト</div><div>${renderPerseusLink(beta)}</div></div>
     <div class="row"><div class="label">Forms here</div><div lang="grc">${wordInfo.forms.map(escapeHtml).join(", ")}</div></div>
     <div class="row"><div class="label">Count</div><div>${wordInfo.count}</div></div>

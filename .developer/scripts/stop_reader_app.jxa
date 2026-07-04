@@ -19,7 +19,7 @@ const SAVED_ROOT_KEY = "readerRoot";
 
 function hasReader(root) {
   return (
-    fileManager.fileExistsAtPath(root + "/scripts/start_reader.sh") &&
+    fileManager.fileExistsAtPath(root + "/scripts/stop_reader.sh") &&
     fileManager.fileExistsAtPath(root + "/app/data/catalog.json")
   );
 }
@@ -76,7 +76,7 @@ function findReaderRoot() {
 function main() {
   const root = findReaderRoot();
   if (!root) return;
-  app.doShellScript("/bin/zsh " + shellQuote(root + "/scripts/start_reader.sh"));
+  app.doShellScript("/bin/zsh " + shellQuote(root + "/scripts/stop_reader.sh"));
 }
 
 main();

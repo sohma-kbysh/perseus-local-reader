@@ -20,7 +20,7 @@ const SAVED_ROOT_KEY = "readerRoot";
 function hasReader(root) {
   return (
     fileManager.fileExistsAtPath(root + "/scripts/update_reader.sh") &&
-    fileManager.fileExistsAtPath(root + "/app/data/apology.json")
+    fileManager.fileExistsAtPath(root + "/app/data/catalog.json")
   );
 }
 
@@ -40,57 +40,34 @@ function findReaderRoot() {
     }
   }
 
-  // macOS often runs a freshly downloaded, unmoved app from an isolated,
-  // temporary copy for safety ("App Translocation"), which hides the
-  // ".developer" folder that normally sits right next to this app.
-  const choice = app.displayDialog(
-    "このアプリのすぐ横にあるはずの読書環境フォルダが見つかりませんでした。\n\n" +
-      "ダウンロードしたばかりのアプリを初めて開いたときによく起きる現象です。" +
-      "安全のため、macOS がこのアプリを一時的な隔離コピーとして実行しているためです。\n\n" +
-      "直すには、Finder でダウンロードしたフォルダ全体（このアプリと " +
-      "\".developer\" フォルダが入っているフォルダ）をデスクトップなど別の場所に" +
-      "ドラッグで移動し、そこから改めてこのアプリを開いてください。\n\n" +
-      "フォルダの場所がすでに分かっている場合は、今すぐ選択することもできます。\n\n" +
-      "————\n\n" +
-      "This app couldn't find its reader folder next to it.\n\n" +
-      "This usually happens the first time you open a freshly downloaded " +
-      "app: macOS runs it from a temporary, isolated copy for safety.\n\n" +
-      "To fix it, in Finder drag the WHOLE folder you downloaded (the one " +
-      "containing this app and the \".developer\" folder) to a new place, " +
-      "such as your Desktop, then open this app again from there.\n\n" +
-      "If you already know where that folder is, you can locate it now instead.",
-    {
-      buttons: ["Quit", "Locate Folder…"],
-      defaultButton: "Locate Folder…",
-    }
-  ).buttonReturned;
-
-  if (choice === "Locate Folder…") {
-    try {
-      const chosen = app.chooseFolder({
-        withPrompt:
-          '".developer" フォルダを含むフォルダ（または ".developer" 自体）を選んでください。\n' +
-          'Select the folder that contains ".developer" (or select the ' +
-          '".developer" folder itself).',
-      });
-      const chosenPath = stripTrailingSlash(chosen.toString());
-      for (const root of [chosenPath + "/.developer", chosenPath]) {
-        if (hasReader(root)) {
-          rememberRoot(root);
-          return root;
-        }
+  // The reader folder isn't always right next to this app (e.g. macOS may
+  // run a freshly downloaded app from an isolated copy for safety). Rather
+  // than treating that as an error, just ask for the folder directly.
+  try {
+    const chosen = app.chooseFolder({
+      withPrompt:
+        "ダウンロードして解凍したフォルダ（例: \"perseus-local-reader-main\"）を" +
+        "選んでください。このアプリと \".developer\" フォルダが入っているフォルダです。\n\n" +
+        "Select the folder you downloaded and unzipped (e.g. " +
+        '"perseus-local-reader-main") — the one containing this app and the ' +
+        '".developer" folder.',
+    });
+    const chosenPath = stripTrailingSlash(chosen.toString());
+    for (const root of [chosenPath + "/.developer", chosenPath]) {
+      if (hasReader(root)) {
+        rememberRoot(root);
+        return root;
       }
-      app.displayDialog(
-        "選んだフォルダは Plato Apology の読書環境フォルダではないようです。" +
-          "先ほどの手順でフォルダを移動してから、もう一度お試しください。\n\n" +
-          "That folder doesn't look like the Plato Apology reader folder. " +
-          "Please try again after moving the downloaded folder, as described " +
-          "earlier.",
-        { buttons: ["OK"], defaultButton: "OK" }
-      );
-    } catch (error) {
-      // User canceled the folder picker; fall through to quitting quietly.
     }
+    app.displayDialog(
+      "選んだフォルダに読書環境が見つかりませんでした。もう一度このアプリを開いて、" +
+        "正しいフォルダを選び直してください。\n\n" +
+        "The reader wasn't found in that folder. Please open this app again " +
+        "and choose the correct folder.",
+      { buttons: ["OK"], defaultButton: "OK" }
+    );
+  } catch (error) {
+    // User canceled the folder picker; quit quietly.
   }
 
   return null;

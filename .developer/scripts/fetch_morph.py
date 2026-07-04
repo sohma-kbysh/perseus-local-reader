@@ -220,33 +220,33 @@ def fetch_one(form, bare=None, delay=0.0):
     return entry
 
 
-def load_forms():
-    data = json.loads((APP_DATA / "apology.json").read_text(encoding="utf-8"))
+def load_forms(work_id):
+    """Collect Greek word forms from a downloaded work JSON (app/data/texts/)."""
+    data = json.loads(
+        (APP_DATA / "texts" / f"{work_id}.json").read_text(encoding="utf-8")
+    )
     forms = {}
-    for section in data["sections"]:
-        for form, bare in re.findall(r'data-form="([^"]+)"\s+data-bare="([^"]+)"', section["html"]):
-            form = html.unescape(form)
-            bare = html.unescape(bare)
-            beta = greek_to_beta(form)
-            if beta and form not in forms:
-                forms[form] = {"bare": bare, "beta": beta}
-    for bare, info in data["words"].items():
-        for form in info["forms"]:
-            if form not in forms:
-                beta = greek_to_beta(form)
-                if beta:
-                    forms[form] = {"bare": bare, "beta": beta}
+    for version in data.get("versions", []):
+        if version.get("lang") != "grc":
+            continue
+        for bare, info in (version.get("words") or {}).items():
+            for form in info.get("forms", []):
+                if form not in forms:
+                    beta = greek_to_beta(form)
+                    if beta:
+                        forms[form] = {"bare": bare, "beta": beta}
     return forms
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("work", help="work id, e.g. tlg0059.tlg002 (must be downloaded)")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--delay", type=float, default=0.35)
     parser.add_argument("--reparse", action="store_true")
     args = parser.parse_args()
 
-    forms = load_forms()
+    forms = load_forms(args.work)
     morphs = load_morphs()
 
     items = list(forms.items())

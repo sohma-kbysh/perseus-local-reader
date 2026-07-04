@@ -58,5 +58,5 @@ for PORT in $(seq "$START_PORT" "$((START_PORT + 10))"); do
   fi
 done
 
-echo "Could not start the Plato Apology reader on ports ${START_PORT}-$((START_PORT + 10))."
+echo "Could not start Perseus Local Reader on ports ${START_PORT}-$((START_PORT + 10))."
 exit 1

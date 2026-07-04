@@ -3,90 +3,54 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Plato, Apology Local Reader</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <title>Perseus Local Reader</title>
+    <link rel="stylesheet" href="./styles.css?v=plr-12" />
   </head>
-  <body>
-    <header class="topbar">
+  <body class="library-body">
+    <header class="topbar library-topbar">
       <div class="title-block">
-        <h1>Plato, Apology</h1>
-        <p>Greek text with local word lookup</p>
-        <details class="download-menu">
-          <summary class="download-trigger" title="形態解析データの取得メニューを開きます">
-            <span class="download-trigger-icon" aria-hidden="true">↓</span>
-            <span>Download</span>
-          </summary>
-          <div class="reader-tools" aria-label="Perseus morphology download controls">
-            <section class="download-section">
-              <h2 class="download-section-title">本文全体</h2>
-              <div class="download-controls">
-                <button
-                  id="fetchAllMorphs"
-                  class="tool-button"
-                  type="button"
-                  title="本文に現れる未取得の語形をPerseusから順番に取得します"
-                >
-                  全語形をPerseusから取得
-                </button>
-                <button
-                  id="stopFetchAllMorphs"
-                  class="tool-button"
-                  type="button"
-                  title="現在の語形の取得が終わり次第、一括取得を停止します"
-                  hidden
-                >
-                  ここまでで停止
-                </button>
-                <progress id="fetchAllProgress" class="fetch-progress" max="1" value="0" hidden></progress>
-              </div>
-              <span id="fetchAllStatus" class="fetch-status" role="status" aria-live="polite"></span>
-            </section>
-
-            <section class="download-section">
-              <h2 class="download-section-title">選択範囲</h2>
-              <div class="download-controls">
-                <button
-                  id="fetchSelectedMorphs"
-                  class="tool-button"
-                  type="button"
-                  title="本文で選択した範囲に含まれる未取得の語形だけをPerseusから取得します"
-                  disabled
-                >
-                  選択範囲を取得
-                </button>
-                <button
-                  id="stopSelectedMorphs"
-                  class="tool-button"
-                  type="button"
-                  title="現在の語形の取得が終わり次第、選択範囲の取得を停止します"
-                  hidden
-                >
-                  選択取得を停止
-                </button>
-                <progress id="fetchSelectedProgress" class="fetch-progress" max="1" value="0" hidden></progress>
-              </div>
-              <span id="fetchSelectedStatus" class="fetch-status" role="status" aria-live="polite">
-                本文をドラッグして選択すると、その範囲の語形をまとめて取得できます。
-              </span>
-            </section>
-          </div>
-        </details>
+        <h1>Perseus Local Reader</h1>
+        <p>Perseus Digital Library のギリシア語テキストと英訳を、手元で検索して読む</p>
       </div>
-      <nav id="sectionNav" aria-label="Sections"></nav>
     </header>
 
-    <main class="layout">
-      <article id="text" class="text" lang="grc"></article>
-      <aside class="panel">
-        <iframe
-          id="morphFrame"
-          name="morphFrame"
-          title="Local morphology"
-          src="./morph.html?v=developer-details-3"
-        ></iframe>
-      </aside>
+    <main class="library">
+      <div class="library-search">
+        <input
+          id="searchBox"
+          type="search"
+          placeholder="著者名・作品名で検索 (例: Plato, Apology, Ὅμηρος)"
+          autocomplete="off"
+          autofocus
+        />
+        <span id="searchCount" class="search-count"></span>
+      </div>
+
+      <section id="downloadedShelf" class="shelf" hidden>
+        <h2>ダウンロード済みの作品</h2>
+        <div id="downloadedList" class="work-list"></div>
+      </section>
+
+      <section class="shelf">
+        <h2 id="browseHeading">著者から探す</h2>
+        <div id="authorList" class="author-list"></div>
+      </section>
     </main>
 
-    <script src="./reader.js"></script>
+    <div id="downloadOverlay" class="overlay" hidden>
+      <div class="overlay-card">
+        <h2 id="overlayTitle">ダウンロード中</h2>
+        <p id="overlayDetail" class="overlay-detail"></p>
+        <progress id="overlayProgress" max="1" value="0"></progress>
+        <p class="overlay-note">
+          この作品の全ての版(原文と翻訳)をまとめて取得しています。<br />
+          完了すると、以後この作品はインターネットなしで読めます。
+        </p>
+        <button id="overlayClose" class="tool-button" type="button" hidden>閉じる</button>
+        <button id="overlayCancel" class="tool-button" type="button">キャンセル</button>
+      </div>
+    </div>
+
+    <script src="./library.js?v=plr-12"></script>
   </body>
 </html>

@@ -4,18 +4,26 @@ __pycache__/
 
 # Local macOS launchers generated for one machine.
 *.app/
-!Open Plato Apology.app/
-!Open Plato Apology.app/**
-!Update Plato Apology.app/
-!Update Plato Apology.app/**
+!Open Perseus Local Reader.app/
+!Open Perseus Local Reader.app/**
+!Close Perseus Local Reader.app/
+!Close Perseus Local Reader.app/**
+!Update Perseus Local Reader.app/
+!Update Perseus Local Reader.app/**
 scripts/*.applescript
 scripts/*.jxa
 !scripts/open_reader_app.jxa
+!scripts/stop_reader_app.jxa
 !scripts/update_reader_app.jxa
 .developer/scripts/*.applescript
 .developer/scripts/*.jxa
 !.developer/scripts/open_reader_app.jxa
+!.developer/scripts/stop_reader_app.jxa
 !.developer/scripts/update_reader_app.jxa
+
+# Works downloaded by the user (Apology ships with the repo).
+.developer/app/data/texts/*
+!.developer/app/data/texts/tlg0059.tlg002.json
 
 # Runtime state.
 data/build/
