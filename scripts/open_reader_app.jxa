@@ -8,6 +8,33 @@ function shellQuote(value) {
 }
 
 const appPath = $.NSBundle.mainBundle.bundlePath.js;
-const root = $(appPath).stringByDeletingLastPathComponent.js;
-app.doShellScript("/bin/zsh " + shellQuote(root + "/scripts/start_reader.sh"));
+const siblingRoot = $(appPath).stringByDeletingLastPathComponent.js;
+const fileManager = $.NSFileManager.defaultManager;
 
+function hasReader(root) {
+  return (
+    fileManager.fileExistsAtPath(root + "/scripts/start_reader.sh") &&
+    fileManager.fileExistsAtPath(root + "/app/data/apology.json")
+  );
+}
+
+function findReaderRoot() {
+  const knownRoots = [
+    siblingRoot,
+    "/Users/sohma/Library/Mobile Documents/com~apple~CloudDocs/Documents/mitsuho/persus",
+    "/Users/sohma/iCloud_Drive_Shortcut/Documents/mitsuho/persus",
+  ];
+  for (const root of knownRoots) {
+    if (hasReader(root)) {
+      return root;
+    }
+  }
+  app.displayDialog("Plato Apology reader folder was not found. Keep this app inside the persus folder, or move the persus folder back to Documents/mitsuho/persus.", {
+    buttons: ["OK"],
+    defaultButton: "OK",
+  });
+  throw new Error("Reader folder not found");
+}
+
+const root = findReaderRoot();
+app.doShellScript("/bin/zsh " + shellQuote(root + "/scripts/start_reader.sh"));
