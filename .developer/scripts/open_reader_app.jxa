@@ -7,9 +7,15 @@ function shellQuote(value) {
   return "'" + value.replace(/'/g, "'\\''") + "'";
 }
 
+function stripTrailingSlash(path) {
+  return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
 const appPath = $.NSBundle.mainBundle.bundlePath.js;
 const siblingRoot = $(appPath).stringByDeletingLastPathComponent.js;
 const fileManager = $.NSFileManager.defaultManager;
+const defaults = $.NSUserDefaults.standardUserDefaults;
+const SAVED_ROOT_KEY = "readerRoot";
 
 function hasReader(root) {
   return (
@@ -18,24 +24,82 @@ function hasReader(root) {
   );
 }
 
+function rememberRoot(root) {
+  defaults.setObjectForKey($(root), SAVED_ROOT_KEY);
+}
+
 function findReaderRoot() {
-  const knownRoots = [
-    siblingRoot + "/.developer",
-    siblingRoot,
-    "/Users/sohma/Library/Mobile Documents/com~apple~CloudDocs/Documents/mitsuho/persus/.developer",
-    "/Users/sohma/iCloud_Drive_Shortcut/Documents/mitsuho/persus/.developer",
-  ];
-  for (const root of knownRoots) {
+  const savedRoot = defaults.stringForKey(SAVED_ROOT_KEY).js;
+  const candidates = [siblingRoot + "/.developer", siblingRoot];
+  if (savedRoot) candidates.push(savedRoot);
+
+  for (const root of candidates) {
     if (hasReader(root)) {
+      rememberRoot(root);
       return root;
     }
   }
-  app.displayDialog("Plato Apology reader folder was not found. Keep this app inside the persus folder, or move the persus folder back to Documents/mitsuho/persus.", {
-    buttons: ["OK"],
-    defaultButton: "OK",
-  });
-  throw new Error("Reader folder not found");
+
+  // macOS often runs a freshly downloaded, unmoved app from an isolated,
+  // temporary copy for safety ("App Translocation"), which hides the
+  // ".developer" folder that normally sits right next to this app.
+  const choice = app.displayDialog(
+    "このアプリのすぐ横にあるはずの読書環境フォルダが見つかりませんでした。\n\n" +
+      "ダウンロードしたばかりのアプリを初めて開いたときによく起きる現象です。" +
+      "安全のため、macOS がこのアプリを一時的な隔離コピーとして実行しているためです。\n\n" +
+      "直すには、Finder でダウンロードしたフォルダ全体（このアプリと " +
+      "\".developer\" フォルダが入っているフォルダ）をデスクトップなど別の場所に" +
+      "ドラッグで移動し、そこから改めてこのアプリを開いてください。\n\n" +
+      "フォルダの場所がすでに分かっている場合は、今すぐ選択することもできます。\n\n" +
+      "————\n\n" +
+      "This app couldn't find its reader folder next to it.\n\n" +
+      "This usually happens the first time you open a freshly downloaded " +
+      "app: macOS runs it from a temporary, isolated copy for safety.\n\n" +
+      "To fix it, in Finder drag the WHOLE folder you downloaded (the one " +
+      "containing this app and the \".developer\" folder) to a new place, " +
+      "such as your Desktop, then open this app again from there.\n\n" +
+      "If you already know where that folder is, you can locate it now instead.",
+    {
+      buttons: ["Quit", "Locate Folder…"],
+      defaultButton: "Locate Folder…",
+    }
+  ).buttonReturned;
+
+  if (choice === "Locate Folder…") {
+    try {
+      const chosen = app.chooseFolder({
+        withPrompt:
+          '".developer" フォルダを含むフォルダ（または ".developer" 自体）を選んでください。\n' +
+          'Select the folder that contains ".developer" (or select the ' +
+          '".developer" folder itself).',
+      });
+      const chosenPath = stripTrailingSlash(chosen.toString());
+      for (const root of [chosenPath + "/.developer", chosenPath]) {
+        if (hasReader(root)) {
+          rememberRoot(root);
+          return root;
+        }
+      }
+      app.displayDialog(
+        "選んだフォルダは Plato Apology の読書環境フォルダではないようです。" +
+          "先ほどの手順でフォルダを移動してから、もう一度お試しください。\n\n" +
+          "That folder doesn't look like the Plato Apology reader folder. " +
+          "Please try again after moving the downloaded folder, as described " +
+          "earlier.",
+        { buttons: ["OK"], defaultButton: "OK" }
+      );
+    } catch (error) {
+      // User canceled the folder picker; fall through to quitting quietly.
+    }
+  }
+
+  return null;
 }
 
-const root = findReaderRoot();
-app.doShellScript("/bin/zsh " + shellQuote(root + "/scripts/start_reader.sh"));
+function main() {
+  const root = findReaderRoot();
+  if (!root) return;
+  app.doShellScript("/bin/zsh " + shellQuote(root + "/scripts/start_reader.sh"));
+}
+
+main();
