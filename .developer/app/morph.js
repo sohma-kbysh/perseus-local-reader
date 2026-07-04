@@ -60,29 +60,76 @@ function renderMorph(data, morphData, word) {
   const parseBlock = localMorph?.analyses?.length
     ? renderAnalyses(localMorph)
     : `<div id="adHocFetch"><p class="note">この語形の Perseus morph キャッシュはまだありません。</p></div>`;
-  const lemmaBlock = lemmas.length
+  const developerBlock = renderDeveloperDetails({
+    bare: word.bare,
+    beta,
+    lemmas,
+    localMorph,
+  });
+
+  return `
+    <h2 lang="grc">${escapeHtml(word.form)}</h2>
+    <div class="meta">Section ${escapeHtml(word.section || "-")} / local morph page</div>
+    <div class="row"><div class="label">元サイト</div><div>${renderPerseusLink(beta)}</div></div>
+    <div class="row"><div class="label">Forms here</div><div lang="grc">${wordInfo.forms.map(escapeHtml).join(", ")}</div></div>
+    <div class="row"><div class="label">Count</div><div>${wordInfo.count}</div></div>
+    ${parseBlock}
+    ${developerBlock}
+  `;
+}
+
+function renderDeveloperDetails({ bare, beta, lemmas, localMorph }) {
+  const localLemmaBlock = lemmas.length
     ? `<div class="lemma-list">${lemmas
         .map(
           (lemma) => `
             <div class="lemma">
               <strong>${escapeHtml(lemma.lemma)}</strong>
-              <span>${escapeHtml(lemma.shortDef || "No short definition")}</span>
+              <span>${
+                lemma.shortDef
+                  ? escapeHtml(lemma.shortDef)
+                  : "<em>short definitionなし</em>"
+              }</span>
             </div>
           `,
         )
         .join("")}</div>`
-    : `<p class="note">ローカル lemma 候補が見つかりませんでした。</p>`;
+    : `<p class="note">ローカル lemma 候補はありません。</p>`;
 
   return `
-    <h2 lang="grc">${escapeHtml(word.form)}</h2>
-    <div class="meta">Section ${escapeHtml(word.section || "-")} / local morph page</div>
-    <div class="row"><div class="label">Bare key</div><div><code>${escapeHtml(word.bare)}</code></div></div>
-    <div class="row"><div class="label">Beta Code</div><div><code>${escapeHtml(beta || "-")}</code></div></div>
-    <div class="row"><div class="label">元サイト</div><div>${renderPerseusLink(beta)}</div></div>
-    <div class="row"><div class="label">Forms here</div><div lang="grc">${wordInfo.forms.map(escapeHtml).join(", ")}</div></div>
-    <div class="row"><div class="label">Count</div><div>${wordInfo.count}</div></div>
-    <div class="row"><div class="label">Lemmas</div><div>${lemmaBlock}</div></div>
-    ${parseBlock}
+    <details class="developer-details">
+      <summary>開発者向け情報</summary>
+      <div class="developer-details-body">
+        <div class="row developer-row">
+          <div class="label">Bare key</div>
+          <div><code>${escapeHtml(bare)}</code></div>
+        </div>
+        <div class="row developer-row">
+          <div class="label">Beta Code</div>
+          <div><code>${escapeHtml(beta || "-")}</code></div>
+        </div>
+        <div class="row developer-row">
+          <div class="label">Morph source</div>
+          <div>${escapeHtml(localMorph?.source || "未取得")}</div>
+        </div>
+
+        <section class="developer-lemmas">
+          <h3>ローカル lemma 候補</h3>
+          ${localLemmaBlock}
+        </section>
+
+        <section class="developer-note">
+          <h3>データ解釈上の注意</h3>
+          <ul>
+            <li><code>Bare key</code> と <code>Beta Code</code> は、検索・通信のためにこのアプリが生成した内部表現です。</li>
+            <li>ローカル lemma 候補は <code>hib_lemmas.sql</code> 由来です。完全一致がない場合は prefix fallback を含むため、確定した形態解析ではありません。</li>
+            <li><em>short definitionなし</em> は、データに短い語義がないことを示すUI上の表示です。</li>
+            <li>Perseus Hopper の短い定義は辞書的な gloss であり、この文脈における訳語とは限りません。</li>
+            <li>Perseus Hopper は可能な解析候補を列挙します。複数候補がある場合、この本文中の正解を自動的に一意化しているわけではありません。</li>
+          </ul>
+        </section>
+      </div>
+    </details>
   `;
 }
 

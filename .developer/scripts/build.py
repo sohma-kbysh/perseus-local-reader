@@ -9,7 +9,8 @@ from urllib.parse import urlencode
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VENDOR = ROOT / "data" / "vendor"
+REPO_ROOT = ROOT.parent
+VENDOR = REPO_ROOT / "data" / "vendor"
 OUT = ROOT / "app" / "data"
 TEI_NS = {"tei": "http://www.tei-c.org/ns/1.0"}
 
@@ -120,7 +121,10 @@ def serialize_node(node, current_section):
         tag = child.tag.split("}", 1)[-1]
         if tag == "milestone" and child.attrib.get("unit") == "section":
             label = child.attrib.get("n", "")
-            pieces.append(f'<span class="stephanus" id="s-{html.escape(label)}">{html.escape(label)}</span>')
+            pieces.append(
+                f'<br class="stephanus-break" />'
+                f'<span class="stephanus" id="s-{html.escape(label)}">{html.escape(label)}</span>'
+            )
         elif tag == "milestone" and child.attrib.get("unit") == "para":
             pieces.append('<span class="para-break"></span>')
         elif tag == "q":
