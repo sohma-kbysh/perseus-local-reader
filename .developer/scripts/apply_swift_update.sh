@@ -117,8 +117,43 @@ if [[ -d "$BACKUP/texts" ]]; then
   /usr/bin/rsync -a "$BACKUP/texts/" "$TEXTS/"
 fi
 
-NEW_APP="$REPO_ROOT/Perseus Local Reader.app"
-[[ -d "$NEW_APP" ]] || fail "更新後のアプリが見つかりませんでした。"
+SOURCE_APP="$REPO_ROOT/Perseus Local Reader.app"
+[[ -d "$SOURCE_APP" ]] || fail "更新後のアプリが見つかりませんでした。"
 
-echo "Update completed. Reopening app..."
-/usr/bin/open "$NEW_APP"
+# Reopen and, when necessary, update the exact stable app bundle from which
+# the user launched the reader. This keeps a Dock item attached to the same
+# application path across updates.
+TARGET_APP="$APP_PATH"
+
+# A quarantined app may be executed from a temporary App Translocation path.
+# That path is read-only and disappears after the process exits, so install a
+# stable copy under the user's Applications directory instead.
+if [[ "$TARGET_APP" == *"/AppTranslocation/"* ]]; then
+  TARGET_APP="$HOME/Applications/Perseus Local Reader.app"
+fi
+
+if [[ "$TARGET_APP" != "$SOURCE_APP" ]]; then
+  TARGET_PARENT="$(/usr/bin/dirname "$TARGET_APP")"
+  /bin/mkdir -p "$TARGET_PARENT"
+
+  echo "Updating launched app bundle:"
+  echo "  source: $SOURCE_APP"
+  echo "  target: $TARGET_APP"
+
+  if [[ -d "$TARGET_APP" ]]; then
+    # Keep the outer bundle path stable so an existing Dock bookmark continues
+    # to refer to the updated application.
+    /usr/bin/rsync -aE --delete "$SOURCE_APP/" "$TARGET_APP/" \
+      || fail "Dockに登録されたアプリ本体の更新に失敗しました。"
+  else
+    /usr/bin/ditto "$SOURCE_APP" "$TARGET_APP" \
+      || fail "安定した場所へのアプリのコピーに失敗しました。"
+  fi
+
+  /usr/bin/codesign --verify --deep --strict "$TARGET_APP" \
+    || fail "更新後のアプリ署名を検証できませんでした。"
+fi
+
+echo "Update completed. Reopening app:"
+echo "  $TARGET_APP"
+/usr/bin/open "$TARGET_APP"
