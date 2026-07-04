@@ -13325,6 +13325,30 @@
       "source": "Perseus Hopper morph",
       "fetched": true
     },
+    "ποίησις": {
+      "form": "ποίησις",
+      "bare": "poihsis",
+      "beta": "poi/hsis",
+      "analyses": [
+        {
+          "lemmaId": "poi/hsis",
+          "lemma": "ποίησις",
+          "definition": "fabrication, creation, production,",
+          "parses": [
+            {
+              "form": "ποίησις",
+              "parse": "noun pl fem acc epic doric ionic aeolic"
+            },
+            {
+              "form": "ποίησις",
+              "parse": "noun sg fem nom"
+            }
+          ]
+        }
+      ],
+      "source": "Perseus Hopper morph",
+      "fetched": true
+    },
     "μεθόδου": {
       "form": "μεθόδου",
       "bare": "meqodou",
@@ -13365,6 +13389,26 @@
       "source": "Perseus Hopper morph",
       "fetched": true
     },
+    "δύναμιν": {
+      "form": "δύναμιν",
+      "bare": "dunamin",
+      "beta": "du/namin",
+      "analyses": [
+        {
+          "lemmaId": "du/namis",
+          "lemma": "δύναμις",
+          "definition": "power, might",
+          "parses": [
+            {
+              "form": "δύναμιν",
+              "parse": "noun sg fem acc"
+            }
+          ]
+        }
+      ],
+      "source": "Perseus Hopper morph",
+      "fetched": true
+    },
     "ποιητικῆς": {
       "form": "ποιητικῆς",
       "bare": "poihtikhs",
@@ -13378,6 +13422,37 @@
             {
               "form": "ποιητικῆς",
               "parse": "adj sg fem gen attic epic ionic"
+            }
+          ]
+        }
+      ],
+      "source": "Perseus Hopper morph",
+      "fetched": true
+    },
+    "εἰδῶν": {
+      "form": "εἰδῶν",
+      "bare": "eidwn",
+      "beta": "ei)dw=n",
+      "analyses": [
+        {
+          "lemmaId": "ei)=dos",
+          "lemma": "εἶδος",
+          "definition": "that which is seen: form, shape",
+          "parses": [
+            {
+              "form": "εἰδῶν",
+              "parse": "noun pl neut gen attic epic doric contr"
+            }
+          ]
+        },
+        {
+          "lemmaId": "ei)doi/",
+          "lemma": "εἰδοί",
+          "definition": "Idus",
+          "parses": [
+            {
+              "form": "εἰδῶν",
+              "parse": "noun pl masc gen"
             }
           ]
         }
@@ -13817,83 +13892,27 @@
       "source": "Perseus Hopper morph",
       "fetched": true
     },
-    "χρόνον": {
-      "form": "χρόνον",
-      "bare": "xronon",
-      "beta": "xro/non",
+    "ΖΗΤΗΜΑ": {
+      "form": "ΖΗΤΗΜΑ",
+      "bare": "zhthma",
+      "beta": "*z*h*t*h*m*a",
       "analyses": [
         {
-          "lemmaId": "xro/nos",
-          "lemma": "χρόνος",
-          "definition": "time,",
+          "lemmaId": "zh/thma",
+          "lemma": "ζήτημα",
+          "definition": "that which is sought",
           "parses": [
             {
-              "form": "χρόνον",
-              "parse": "noun sg masc acc"
-            }
-          ]
-        }
-      ],
-      "source": "Perseus Hopper morph",
-      "fetched": true
-    },
-    "πεπεισμένοι": {
-      "form": "πεπεισμένοι",
-      "bare": "pepeismenoi",
-      "beta": "pepeisme/noi",
-      "analyses": [
-        {
-          "lemmaId": "pei/qw",
-          "lemma": "πείθω",
-          "definition": "persuade",
-          "parses": [
-            {
-              "form": "πεπεισμένοι",
-              "parse": "part pl perf mp masc voc"
+              "form": "ζήτημα",
+              "parse": "noun sg neut acc"
             },
             {
-              "form": "πεπεισμένοι",
-              "parse": "part pl perf mp masc nom"
-            }
-          ]
-        }
-      ],
-      "source": "Perseus Hopper morph",
-      "fetched": true
-    },
-    "ἐκέλευσεν": {
-      "form": "ἐκέλευσεν",
-      "bare": "ekeleusen",
-      "beta": "e)ke/leusen",
-      "analyses": [
-        {
-          "lemmaId": "keleu/w",
-          "lemma": "κελεύω",
-          "definition": "urge, drive on",
-          "parses": [
+              "form": "ζήτημα",
+              "parse": "noun sg neut nom"
+            },
             {
-              "form": "ἐκέλευσεν",
-              "parse": "verb 3rd sg aor ind act nu_movable"
-            }
-          ]
-        }
-      ],
-      "source": "Perseus Hopper morph",
-      "fetched": true
-    },
-    "φλογὸς": {
-      "form": "φλογὸς",
-      "bare": "flogos",
-      "beta": "flogo\\s",
-      "analyses": [
-        {
-          "lemmaId": "flo/c",
-          "lemma": "φλόξ",
-          "definition": "flame",
-          "parses": [
-            {
-              "form": "φλογός",
-              "parse": "noun sg fem gen"
+              "form": "ζήτημα",
+              "parse": "noun sg neut voc"
             }
           ]
         }
