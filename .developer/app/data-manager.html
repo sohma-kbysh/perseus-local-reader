@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>保存データの管理 — Perseus Local Reader</title>
   <link rel="stylesheet" href="./styles.css?v=plr-13" />
-  <link rel="stylesheet" href="./data-manager.css?v=plr-1" />
+  <link rel="stylesheet" href="./data-manager.css?v=plr-2" />
 </head>
 <body class="manager-body">
   <header class="topbar manager-topbar">
@@ -30,9 +30,26 @@
       <div class="section-heading-row">
         <div>
           <h2>ダウンロード済みの本文</h2>
-          <p>削除した作品は、ライブラリから再度ダウンロードできます。</p>
+          <p>本文の削除に加えて、選択した作品だけで使われている単語解析データを削除できます。他のダウンロード済み作品でも使われる語形は保持されます。</p>
         </div>
-        <button id="deleteWorksButton" class="manager-button danger" type="button" disabled>選択した本文を削除</button>
+        <div class="section-heading-actions">
+          <button
+            id="deleteWorkMorphsButton"
+            class="manager-button"
+            type="button"
+            disabled
+          >
+            選択した作品専用の単語を削除
+          </button>
+          <button
+            id="deleteWorksButton"
+            class="manager-button danger"
+            type="button"
+            disabled
+          >
+            選択した本文を削除
+          </button>
+        </div>
       </div>
       <div class="manager-toolbar">
         <input id="workSearch" type="search" placeholder="著者名・作品名・作品ID・言語で検索" />
@@ -68,6 +85,6 @@
     </section>
   </main>
 
-  <script src="./data-manager.js?v=plr-1"></script>
+  <script src="./data-manager.js?v=plr-2"></script>
 </body>
 </html>

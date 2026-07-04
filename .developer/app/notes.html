@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>メモ — Perseus Local Reader</title>
+  <link rel="stylesheet" href="./styles.css?v=plr-notes-1" />
+  <link rel="stylesheet" href="./notes.css?v=plr-notes-1" />
+</head>
+<body class="notes-page">
+  <header class="topbar notes-topbar">
+    <div class="title-block">
+      <p class="breadcrumb"><a href="./index.html">← ライブラリへ戻る</a></p>
+      <h1>メモ</h1>
+      <p>本文の語句や選択範囲に付けたメモを、検索・編集・削除できます。</p>
+    </div>
+    <button id="reloadNotes" class="tool-button" type="button">再読み込み</button>
+  </header>
+
+  <main class="notes-main">
+    <section class="notes-summary" aria-label="メモの概要">
+      <article><span>すべて</span><strong id="allCount">0</strong></article>
+      <article><span>単語</span><strong id="wordCount">0</strong></article>
+      <article><span>文章</span><strong id="passageCount">0</strong></article>
+    </section>
+
+    <section class="notes-toolbar">
+      <input
+        id="notesSearch"
+        type="search"
+        placeholder="語句・見出し語・作品名・メモ内容で検索"
+        autocomplete="off"
+      />
+      <select id="notesKind" aria-label="メモの種類">
+        <option value="all">すべて</option>
+        <option value="word">単語</option>
+        <option value="passage">文章</option>
+      </select>
+      <select id="notesSort" aria-label="並び順">
+        <option value="updated-desc">更新日時が新しい順</option>
+        <option value="created-desc">作成日時が新しい順</option>
+        <option value="work">作品順</option>
+      </select>
+      <button id="selectVisibleNotes" class="tool-button" type="button">表示中をすべて選択</button>
+      <button id="clearNoteSelection" class="tool-button secondary" type="button">選択解除</button>
+      <button id="deleteSelectedNotes" class="tool-button note-danger" type="button" disabled>
+        選択したメモを削除
+      </button>
+      <span id="noteSelectionCount">0件選択</span>
+    </section>
+
+    <p id="notesStatus" class="notes-status" role="status" aria-live="polite"></p>
+    <section id="notesList" class="notes-list" aria-live="polite"></section>
+    <p id="notesEmpty" class="notes-empty" hidden>該当するメモはありません。</p>
+  </main>
+
+  <script src="./notes.js?v=plr-notes-1"></script>
+</body>
+</html>

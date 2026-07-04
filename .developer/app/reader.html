@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Perseus Local Reader</title>
     <link rel="stylesheet" href="./styles.css?v=plr-14" />
-  </head>
+    <link rel="stylesheet" href="./notes.css?v=plr-notes-1" />
+</head>
   <body>
     <header class="topbar">
       <a class="collapsed-library-link" href="./index.html">← ライブラリへ戻る</a>
@@ -21,7 +22,7 @@
       <div class="title-block">
         <div class="reader-title-row">
           <div>
-            <p class="breadcrumb"><a href="./index.html">← ライブラリへ戻る</a></p>
+            <p class="breadcrumb"><a href="./index.html">← ライブラリへ戻る</a><a class="reader-notes-inline" href="./notes.html">メモ</a></p>
             <h1 id="workTitle">読み込み中...</h1>
             <p id="workMeta"></p>
           </div>
@@ -168,6 +169,72 @@
       </aside>
     </main>
 
+    <div id="selectionNoteToolbar" class="selection-note-toolbar" hidden>
+      <button id="addSelectionNote" class="tool-button" type="button">
+        ★ 選択範囲をメモ
+      </button>
+    </div>
+
+    <div id="noteOverlay" class="note-overlay" hidden>
+      <section
+        class="note-dialog-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="noteDialogTitle"
+      >
+        <h2 id="noteDialogTitle">メモ</h2>
+        <blockquote id="noteQuotePreview" class="note-quote-preview"></blockquote>
+
+        <fieldset id="wordNoteScope" class="note-scope" hidden>
+          <legend>蛍光マーカーを付ける範囲</legend>
+          <label>
+            <input
+              type="radio"
+              name="wordNoteScope"
+              value="occurrence"
+              checked
+            />
+            クリックしたこの箇所だけ
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="wordNoteScope"
+              value="work-form"
+            />
+            この作品内の同じ語形すべて
+          </label>
+        </fieldset>
+
+        <label for="noteMemo">メモ</label>
+        <textarea
+          id="noteMemo"
+          rows="7"
+          placeholder="空欄のままでも、蛍光マーカーとして保存できます。"
+        ></textarea>
+        <p id="noteDialogStatus" class="notes-status" role="status"></p>
+
+        <div class="note-dialog-actions">
+          <button
+            id="noteDialogDelete"
+            class="tool-button note-delete-button"
+            type="button"
+            hidden
+          >
+            メモを削除
+          </button>
+          <button id="noteDialogCancel" class="tool-button secondary" type="button">
+            キャンセル
+          </button>
+          <button id="noteDialogSave" class="tool-button" type="button">
+            保存
+          </button>
+        </div>
+      </section>
+    </div>
+
+
     <script src="./reader.js?v=plr-14"></script>
+    <script src="./reader-notes.js?v=plr-notes-1"></script>
   </body>
 </html>

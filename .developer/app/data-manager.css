@@ -29,6 +29,10 @@
   font-family: ui-serif, Georgia, "Times New Roman", serif; font-size: 20px;
 }
 .section-heading-row p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.section-heading-actions {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; flex-wrap: wrap;
+}
 .manager-toolbar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0 12px;
 }
@@ -93,6 +97,7 @@
 @media (max-width: 760px) {
   .manager-summary { grid-template-columns: 1fr; }
   .manager-topbar, .section-heading-row, .library-topbar { display: grid; }
+  .section-heading-actions { justify-content: flex-start; }
   .manager-row { grid-template-columns: 22px minmax(0,1fr); }
   .manager-row-meta { grid-column: 2; justify-content: flex-start; flex-wrap: wrap; }
   .selection-count { width: 100%; margin-left: 0; }

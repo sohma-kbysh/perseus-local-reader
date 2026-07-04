@@ -29,3 +29,6 @@ data/build/
 data/vendor/
 .developer/data/vendor/
 .developer/swift-app/.build/
+
+# Private reader notes and highlights.
+.developer/data/user/

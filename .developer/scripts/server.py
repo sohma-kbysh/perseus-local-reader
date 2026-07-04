@@ -5,6 +5,8 @@ import re
 import sys
 import threading
 import time
+import uuid
+from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
@@ -39,6 +41,11 @@ WORK_CANCELS = set()
 
 DATA_MANAGEMENT_LOCK = threading.Lock()
 SAFE_WORK_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+NOTES_DIR = ROOT / "data" / "user"
+NOTES_PATH = NOTES_DIR / "notes.json"
+NOTES_LOCK = threading.Lock()
+MAX_NOTES = 10000
 
 
 
@@ -204,6 +211,28 @@ def catalog_work_map():
     }
 
 
+def cached_work_morph_usage():
+    # Return per-work cached form sets and cross-work use counts.
+    work_forms = {}
+    for path in sorted(text_store.TEXTS_OUT.glob("*.json")):
+        try:
+            work_forms[path.stem] = set(load_forms(path.stem))
+        except (OSError, ValueError, KeyError, json.JSONDecodeError):
+            work_forms[path.stem] = None
+
+    with MORPH_FETCH_LOCK:
+        cached_forms = set(load_morphs())
+
+    use_counts = {}
+    for forms in work_forms.values():
+        if forms is None:
+            continue
+        for form in forms & cached_forms:
+            use_counts[form] = use_counts.get(form, 0) + 1
+
+    return work_forms, cached_forms, use_counts
+
+
 def data_management_snapshot():
     catalog = catalog_work_map()
     works = []
@@ -268,6 +297,27 @@ def data_management_snapshot():
             )
 
     morph_rows.sort(key=lambda row: row["form"])
+
+    work_forms, cached_forms, use_counts = cached_work_morph_usage()
+    for work in works:
+        forms = work_forms.get(work["id"])
+        if forms is None:
+            work["cachedMorphCount"] = 0
+            work["exclusiveMorphCount"] = 0
+            work["sharedMorphCount"] = 0
+            work["morphUsageUnavailable"] = True
+            continue
+
+        cached_for_work = forms & cached_forms
+        exclusive = {
+            form for form in cached_for_work
+            if use_counts.get(form, 0) == 1
+        }
+        work["cachedMorphCount"] = len(cached_for_work)
+        work["exclusiveMorphCount"] = len(exclusive)
+        work["sharedMorphCount"] = len(cached_for_work - exclusive)
+        work["morphUsageUnavailable"] = False
+
     work_bytes = sum(work["bytes"] for work in works)
     morph_path = ROOT / "app" / "data" / "morph.json"
     morph_bytes = morph_path.stat().st_size if morph_path.exists() else 0
@@ -369,6 +419,336 @@ def delete_morph_data(forms):
     return deleted, skipped
 
 
+def utc_timestamp():
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def empty_notes_document():
+    return {"version": 1, "notes": []}
+
+
+def read_notes_unlocked():
+    if not NOTES_PATH.exists():
+        return empty_notes_document()
+
+    try:
+        payload = json.loads(NOTES_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeError(
+            f"メモファイルを読み込めません: {NOTES_PATH}: {error}"
+        ) from error
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("notes"), list):
+        raise RuntimeError("メモファイルの形式が正しくありません。")
+    return payload
+
+
+def write_notes_unlocked(payload):
+    NOTES_DIR.mkdir(parents=True, exist_ok=True)
+    temporary = NOTES_PATH.with_suffix(".json.tmp")
+    encoded = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+
+    with temporary.open("w", encoding="utf-8") as handle:
+        handle.write(encoded)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+    os.replace(temporary, NOTES_PATH)
+
+
+def notes_snapshot():
+    with NOTES_LOCK:
+        payload = read_notes_unlocked()
+        notes = [note for note in payload.get("notes", []) if isinstance(note, dict)]
+    notes.sort(
+        key=lambda note: str(note.get("updatedAt") or note.get("createdAt") or ""),
+        reverse=True,
+    )
+    return {"version": payload.get("version", 1), "notes": notes}
+
+
+def clean_note_text(value, field, maximum, required=False):
+    if value is None:
+        value = ""
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    value = value.strip() if field != "quote" else value
+    if required and not value.strip():
+        raise ValueError(f"{field} is required")
+    if len(value) > maximum:
+        raise ValueError(f"{field} is too long")
+    return value
+
+
+def clean_nonnegative_int(value, field, required=False):
+    if value is None or value == "":
+        if required:
+            raise ValueError(f"{field} is required")
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be an integer")
+    try:
+        number = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field} must be an integer") from error
+    if number < 0:
+        raise ValueError(f"{field} must be non-negative")
+    return number
+
+
+def note_identity(note):
+    if note.get("kind") == "word" and note.get("scope") == "work-form":
+        return (
+            "word",
+            "work-form",
+            note.get("workUrn", ""),
+            note.get("form", ""),
+        )
+    if note.get("kind") == "word":
+        return (
+            "word",
+            "occurrence",
+            note.get("workUrn", ""),
+            note.get("versionUrn", ""),
+            note.get("chunk"),
+            note.get("wordIndex"),
+        )
+    return None
+
+
+def normalize_note(raw, existing=None):
+    if not isinstance(raw, dict):
+        raise ValueError("note must be an object")
+
+    kind = raw.get("kind")
+    if kind not in {"word", "passage"}:
+        raise ValueError("kind must be word or passage")
+
+    scope = raw.get("scope")
+    if kind == "word" and scope not in {"occurrence", "work-form"}:
+        raise ValueError("word scope must be occurrence or work-form")
+    if kind == "passage":
+        scope = "range"
+
+    note = {
+        "id": clean_note_text(
+            raw.get("id") or (existing or {}).get("id") or uuid.uuid4().hex,
+            "id",
+            128,
+            required=True,
+        ),
+        "kind": kind,
+        "scope": scope,
+        "quote": clean_note_text(raw.get("quote"), "quote", 20000, required=True),
+        "memo": clean_note_text(raw.get("memo"), "memo", 50000),
+        "author": clean_note_text(raw.get("author"), "author", 1000),
+        "workTitle": clean_note_text(raw.get("workTitle"), "workTitle", 1000),
+        "workUrn": clean_note_text(
+            raw.get("workUrn"), "workUrn", 2000, required=True
+        ),
+        "versionUrn": clean_note_text(raw.get("versionUrn"), "versionUrn", 2000),
+        "citation": clean_note_text(raw.get("citation"), "citation", 1000),
+        "form": clean_note_text(raw.get("form"), "form", 1000),
+        "bare": clean_note_text(raw.get("bare"), "bare", 1000),
+        "lemma": clean_note_text(raw.get("lemma"), "lemma", 1000),
+        "definition": clean_note_text(
+            raw.get("definition"), "definition", 4000
+        ),
+        "chunk": clean_nonnegative_int(raw.get("chunk"), "chunk"),
+        "wordIndex": clean_nonnegative_int(raw.get("wordIndex"), "wordIndex"),
+        "start": clean_nonnegative_int(raw.get("start"), "start"),
+        "end": clean_nonnegative_int(raw.get("end"), "end"),
+    }
+
+    if kind == "word":
+        note["form"] = clean_note_text(
+            raw.get("form") or raw.get("quote"),
+            "form",
+            1000,
+            required=True,
+        )
+        if scope == "occurrence":
+            if not note["versionUrn"]:
+                raise ValueError("versionUrn is required for occurrence notes")
+            if note["chunk"] is None or note["wordIndex"] is None:
+                raise ValueError(
+                    "chunk and wordIndex are required for occurrence notes"
+                )
+        else:
+            note["wordIndex"] = None
+    else:
+        if not note["versionUrn"]:
+            raise ValueError("versionUrn is required for passage notes")
+        if note["chunk"] is None or note["start"] is None or note["end"] is None:
+            raise ValueError("chunk, start and end are required for passage notes")
+        if note["end"] <= note["start"]:
+            raise ValueError("passage end must be greater than start")
+
+    now = utc_timestamp()
+    note["createdAt"] = (
+        (existing or {}).get("createdAt")
+        or clean_note_text(raw.get("createdAt"), "createdAt", 100)
+        or now
+    )
+    note["updatedAt"] = now
+    return note
+
+
+def save_note(raw):
+    with NOTES_LOCK:
+        payload = read_notes_unlocked()
+        notes = [note for note in payload.get("notes", []) if isinstance(note, dict)]
+
+        requested_id = raw.get("id") if isinstance(raw, dict) else None
+        existing = next(
+            (note for note in notes if requested_id and note.get("id") == requested_id),
+            None,
+        )
+
+        preliminary = normalize_note(raw, existing=existing)
+        identity = note_identity(preliminary)
+        if existing is None and identity is not None:
+            existing = next(
+                (note for note in notes if note_identity(note) == identity),
+                None,
+            )
+            if existing is not None:
+                preliminary = normalize_note(
+                    {**raw, "id": existing.get("id")},
+                    existing=existing,
+                )
+
+        if existing is not None:
+            notes = [
+                preliminary if note.get("id") == existing.get("id") else note
+                for note in notes
+            ]
+        else:
+            if len(notes) >= MAX_NOTES:
+                raise ValueError("メモ数の上限に達しています。")
+            notes.append(preliminary)
+
+        payload = {"version": 1, "notes": notes}
+        write_notes_unlocked(payload)
+        return preliminary
+
+
+def delete_notes(note_ids):
+    if not isinstance(note_ids, list):
+        raise ValueError("ids must be an array")
+    if len(note_ids) > MAX_NOTES:
+        raise ValueError("too many ids")
+
+    ids = {
+        value
+        for value in note_ids
+        if isinstance(value, str) and 0 < len(value) <= 128
+    }
+
+    with NOTES_LOCK:
+        payload = read_notes_unlocked()
+        original = [
+            note for note in payload.get("notes", []) if isinstance(note, dict)
+        ]
+        kept = [note for note in original if note.get("id") not in ids]
+        deleted = [
+            note.get("id")
+            for note in original
+            if note.get("id") in ids
+        ]
+        if deleted:
+            write_notes_unlocked({"version": 1, "notes": kept})
+    return deleted
+
+
+def local_origin_allowed(origin):
+    if not origin:
+        return True
+    return (
+        origin.startswith("http://127.0.0.1:")
+        or origin.startswith("http://localhost:")
+    )
+
+def delete_work_scoped_morph_data(work_ids):
+    # Delete only cached forms exclusive to the selected set of works.
+    if not isinstance(work_ids, list):
+        raise ValueError("works must be an array")
+    if len(work_ids) > 1000:
+        raise ValueError("too many works")
+
+    requested = []
+    skipped = []
+    seen = set()
+    for raw in work_ids:
+        if not isinstance(raw, str) or not SAFE_WORK_ID.fullmatch(raw):
+            skipped.append({"id": str(raw), "reason": "invalid work id"})
+            continue
+        if raw in seen:
+            continue
+        seen.add(raw)
+        requested.append(raw)
+
+    with DATA_MANAGEMENT_LOCK:
+        downloaded_ids = {
+            path.stem for path in text_store.TEXTS_OUT.glob("*.json")
+        }
+
+        selected_ids = []
+        for work_id in requested:
+            if work_id not in downloaded_ids:
+                skipped.append({"id": work_id, "reason": "本文が見つかりません"})
+                continue
+            selected_ids.append(work_id)
+
+        if not selected_ids:
+            return {
+                "selectedWorks": [],
+                "deletedMorphs": [],
+                "preservedSharedCount": 0,
+                "skipped": skipped,
+            }
+
+        form_map = {}
+        for work_id in sorted(downloaded_ids):
+            try:
+                form_map[work_id] = set(load_forms(work_id))
+            except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+                raise RuntimeError(
+                    f"{work_id} の単語一覧を確認できないため、"
+                    "安全のため削除を中止しました。"
+                ) from error
+
+    selected_set = set(selected_ids)
+    selected_forms = set().union(
+        *(form_map[work_id] for work_id in selected_ids)
+    )
+    unselected_forms = set().union(
+        *(
+            forms
+            for work_id, forms in form_map.items()
+            if work_id not in selected_set
+        )
+    ) if len(form_map) > len(selected_set) else set()
+
+    with MORPH_FETCH_LOCK:
+        cached_forms = set(load_morphs())
+
+    deletable = sorted(
+        (selected_forms - unselected_forms) & cached_forms
+    )
+    shared = (selected_forms & unselected_forms) & cached_forms
+
+    deleted, skipped_forms = delete_morph_data(deletable)
+    skipped.extend(skipped_forms)
+
+    return {
+        "selectedWorks": selected_ids,
+        "deletedMorphs": deleted,
+        "preservedSharedCount": len(shared),
+        "skipped": skipped,
+    }
+
+
 class ReaderHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(APP), **kwargs)
@@ -385,6 +765,12 @@ class ReaderHandler(SimpleHTTPRequestHandler):
         global last_access
         last_access = time.time()
         parsed = urlparse(self.path)
+        if parsed.path == "/api/notes":
+            try:
+                self.send_json(notes_snapshot())
+            except Exception as error:
+                self.send_json({"error": str(error)}, status=500)
+            return
         if parsed.path == "/api/data/manager":
             self.send_json(data_management_snapshot())
             return
@@ -412,6 +798,54 @@ class ReaderHandler(SimpleHTTPRequestHandler):
         last_access = time.time()
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
+        if parsed.path == "/api/notes/save":
+            if not local_origin_allowed(self.headers.get("Origin", "")):
+                self.send_json({"error": "forbidden origin"}, status=403)
+                return
+            try:
+                payload = self.read_json_body()
+                note = save_note(payload)
+                self.send_json({"note": note})
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+            except Exception as error:
+                self.send_json({"error": str(error)}, status=500)
+            return
+
+        if parsed.path == "/api/notes/delete":
+            if not local_origin_allowed(self.headers.get("Origin", "")):
+                self.send_json({"error": "forbidden origin"}, status=403)
+                return
+            try:
+                payload = self.read_json_body()
+                deleted = delete_notes(payload.get("ids"))
+                self.send_json({"deleted": deleted})
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+            except Exception as error:
+                self.send_json({"error": str(error)}, status=500)
+            return
+        if parsed.path == "/api/data/delete-work-morphs":
+            origin = self.headers.get("Origin", "")
+            if origin and not (
+                origin.startswith("http://127.0.0.1:")
+                or origin.startswith("http://localhost:")
+            ):
+                self.send_json({"error": "forbidden origin"}, status=403)
+                return
+
+            try:
+                payload = self.read_json_body()
+                result = delete_work_scoped_morph_data(
+                    payload.get("works")
+                )
+                self.send_json(result)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+            except Exception as error:
+                self.send_json({"error": str(error)}, status=500)
+            return
+
         if parsed.path == "/api/data/delete":
             origin = self.headers.get("Origin", "")
             if origin and not (

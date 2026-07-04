@@ -126,6 +126,9 @@ function renderWorks() {
         <span class="manager-row-meta">
           <span>${languages}</span>
           <span>${work.versionCount}版</span>
+          <span>単語 ${Number(work.cachedMorphCount || 0)}語形</span>
+          <span>専用 ${Number(work.exclusiveMorphCount || 0)}</span>
+          <span>共通 ${Number(work.sharedMorphCount || 0)}</span>
           <span>${formatBytes(work.bytes)}</span>
         </span>
       </label>`;
@@ -194,6 +197,8 @@ function updateSelectionControls() {
   document.getElementById("workSelectionCount").textContent = `${state.selectedWorks.size}件選択`;
   document.getElementById("morphSelectionCount").textContent = `${state.selectedMorphs.size}件選択`;
   document.getElementById("deleteWorksButton").disabled = state.selectedWorks.size === 0;
+  document.getElementById("deleteWorkMorphsButton").disabled =
+    state.selectedWorks.size === 0;
   document.getElementById("deleteMorphsButton").disabled = state.selectedMorphs.size === 0;
 }
 
@@ -238,6 +243,60 @@ async function deleteSelected(kind) {
   }
 }
 
+async function deleteSelectedWorkMorphs() {
+  if (state.selectedWorks.size === 0) return;
+
+  const selectedWorks = [...state.selectedWorks];
+  const selectedRows = state.works.filter((work) =>
+    state.selectedWorks.has(work.id),
+  );
+  const titles = selectedRows
+    .map((work) => work.title || work.id)
+    .slice(0, 5)
+    .join("、");
+  const suffix = selectedRows.length > 5 ? ` ほか${selectedRows.length - 5}作品` : "";
+
+  const confirmed = window.confirm(
+    `選択した${selectedWorks.length}作品（${titles}${suffix}）で使われる` +
+      "単語解析データのうち、選択していない他作品では使われていない語形だけを削除します。\n\n" +
+      "他作品と共通する語形、本文データ、メモ、蛍光マーカーは削除されません。" +
+      "必要な単語解析は本文から再取得できます。続けますか？",
+  );
+  if (!confirmed) return;
+
+  setStatus("作品専用の単語解析データを確認して削除しています…");
+  document.getElementById("deleteWorkMorphsButton").disabled = true;
+
+  try {
+    const response = await fetch("/api/data/delete-work-morphs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ works: selectedWorks }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || `HTTP ${response.status}`);
+    }
+
+    const deleted = (payload.deletedMorphs || []).length;
+    const preserved = Number(payload.preservedSharedCount || 0);
+    const skipped = (payload.skipped || []).length;
+
+    state.selectedWorks.clear();
+    await loadData();
+    setStatus(
+      `${deleted}語形を削除しました。` +
+        `${preserved}語形は他のダウンロード済み作品でも使われるため保持しました。` +
+        `${skipped ? `${skipped}件は対象を確認できなかったため処理していません。` : ""}`,
+      "success",
+    );
+  } catch (error) {
+    setStatus(`作品専用の単語データを削除できませんでした: ${error.message}`, "error");
+    updateSelectionControls();
+  }
+}
+
 document.getElementById("reloadButton").addEventListener("click", loadData);
 document.getElementById("workSearch").addEventListener("input", (event) => {
   state.workQuery = event.target.value;
@@ -268,6 +327,7 @@ document.getElementById("clearMorphs").addEventListener("click", () => {
   renderMorphs();
   updateSelectionControls();
 });
+document.getElementById("deleteWorkMorphsButton").addEventListener("click", deleteSelectedWorkMorphs);
 document.getElementById("deleteWorksButton").addEventListener("click", () => deleteSelected("works"));
 document.getElementById("deleteMorphsButton").addEventListener("click", () => deleteSelected("morphs"));
 document.getElementById("morphPrev").addEventListener("click", () => {
