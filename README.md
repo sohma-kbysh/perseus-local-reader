@@ -1,16 +1,151 @@
 # Perseus Local Reader
 
-Perseus Local Reader は、Perseus Digital Library が公開しているデータを利用し、古典ギリシア語の原文と翻訳をMac上で読むための読書環境です。著者名や作品名からテキストを検索し、読みたい作品を手元に保存して閲覧できます。
+**Current documented version: 0.1.9**
 
-ギリシア語原文と翻訳の切り替え、作品内検索、節や行による移動、単語をクリックして形態情報を確認する機能を備えています。一度取得した作品や形態解析データはローカルに保存されるため、保存済みの内容はオフラインでも利用できます。
+Perseus Local Reader は、Perseus Digital Library が公開している古典語テキストを、macOS 上のローカル環境で検索・取得・閲覧するための読書アプリです。
 
-利用者が開くアプリは、次の1つだけです。
+ギリシア語原文と翻訳の切り替え、作品内検索、節・行単位の移動、語形解析、メモ・お気に入り・蛍光マーカー、保存データ管理、アプリ内 Reader、自己更新を備えています。取得済みの本文・形態解析・メモはローカルに保存され、保存済みデータはオフラインでも利用できます。
+
+> [!IMPORTANT]
+> `Perseus Local Reader.app` は単独で完結するアプリではありません。解凍したフォルダ内の `.developer/` を実行時に使用します。原則として、解凍後のフォルダ全体を分離せず保管してください。
+
+---
+
+## 主な機能
+
+### ライブラリと作品取得
+
+- 著者名・作品名・版名による検索
+- ギリシア語のアクセント・ダイアクリティカルマークを無視した検索
+- 著者ごとの作品一覧
+- ダウンロード済み作品の専用一覧
+- 作品に含まれる原文・翻訳など、利用可能な全版の一括取得
+- ダウンロード進捗表示、キャンセル、停止状態の検出
+- 取得済み作品のオフライン閲覧
+
+### Reader
+
+- ギリシア語原文・英訳その他の版の切り替え
+- 巻・節・行など、作品データに応じた単位での移動
+- 前後チャンクへの移動
+- 作品内全文検索
+- 上部ツールバーの折りたたみ
+- 本文文字サイズの変更
+  - 小
+  - 標準
+  - 大
+  - 特大
+  - 8–120 px のカスタム値
+- クリックしたギリシア語単語の形態解析表示
+- 作品全体に現れる未取得語形の一括取得
+- 選択範囲に含まれる未取得語形だけの取得
+- 形態解析取得の途中停止
+
+### メモ・お気に入り・蛍光マーカー
+
+メモ機能は、単語単位と文章範囲の両方に対応しています。
+
+- 単語をクリックし、形態解析パネルからメモを追加
+- 単語マーカーの適用範囲を選択
+  - クリックした箇所だけ
+  - その作品内にある同一の完全一致語形すべて
+- 本文をドラッグ選択して文章範囲へメモを追加
+- メモを空欄で保存し、蛍光マーカー／お気に入りとして使用
+- 保存済みメモの本文上での再表示
+- メモ一覧から元の本文位置へ移動
+- メモ一覧での検索
+  - 引用部分
+  - メモ本文
+  - 著者名
+  - 作品名
+  - 引用位置
+  - 語形
+  - 見出し語
+  - 短い語義
+- 種類による絞り込み
+  - すべて
+  - 単語
+  - 文章
+- 並び替え
+  - 更新日時が新しい順
+  - 作成日時が新しい順
+  - 作品順
+- 一覧上での編集・保存・個別削除
+- 表示中メモの一括選択・一括削除
+
+メモデータは次に保存されます。
 
 ```text
-Perseus Local Reader.app
+.developer/data/user/notes.json
 ```
 
-このアプリを開くと読書環境が起動し、自動的にブラウザで本文画面が開きます。読書を終えるときは、アプリの「終了」ボタンを押すか、アプリのウィンドウを閉じてください。起動中の読書環境も同時に終了します。
+書き込みは一時ファイルを経由して置換されるため、通常の保存中に既存 JSON を直接上書きしません。
+
+### 保存データ管理
+
+ライブラリ画面右上の **保存データを管理** から利用できます。
+
+- ダウンロード済み本文の作品数・容量を表示
+- 取得済み語形解析の語形数・容量を表示
+- 本文と語形解析の合計容量を表示
+- 著者名・作品名・作品 ID・言語による本文検索
+- 語形・正規化形・見出し語・短い語義による形態解析検索
+- 表示中項目の一括選択・選択解除
+- 選択した本文データの削除
+- 選択した語形解析データの削除
+- 形態解析一覧を 1 ページ 100 語形で表示
+- 作品ごとの次の情報を表示
+  - 版数
+  - 使用中のキャッシュ済み語形数
+  - その作品だけで使われる専用語形数
+  - 他作品でも使われる共通語形数
+  - 本文データ容量
+- 選択した作品群で使われ、選択していないダウンロード済み作品では使われない語形だけを削除
+
+作品単位の語形削除では、他のダウンロード済み作品でも使われる完全一致語形を保持します。本文、メモ、蛍光マーカーは削除しません。必要な本文・語形解析は後から再取得できます。
+
+---
+
+## macOS アプリ
+
+### 表示先の選択
+
+標準設定では、Reader をアプリ内の `WKWebView` で開きます。アプリメニューの **設定…** から次を選択できます。
+
+- アプリ内で開く（推奨）
+- 既定のブラウザで開く
+- macOS が URL 対応アプリとして認識している特定のブラウザ／アプリで開く
+
+選択内容は `UserDefaults` の `readerOpenTarget` に保存されます。
+
+選択した外部ブラウザが見つからなくなった場合は、既定のブラウザへフォールバックし、設定も既定のブラウザへ戻します。
+
+### アプリ内 Reader のツールバー
+
+- 戻る
+- 進む
+- 再読み込み
+- ライブラリ
+- 設定
+- 外部ブラウザで開く
+
+ローカル Reader 内のリンクはアプリ内で開きます。`127.0.0.1` または `localhost` 以外の外部 URL は macOS の外部ブラウザへ渡します。
+
+JavaScript の `alert`、`confirm`、`prompt` は、アプリ内 Reader でも macOS のダイアログとして表示されます。
+
+### コントローラ
+
+小型のコントローラ画面には次があります。
+
+- **Readerを開く**
+- **更新を確認**
+- **終了**
+- サーバー状態
+- 現在のローカル URL
+
+アプリ内 Reader を開くとコントローラは隠れますが、アプリメニューの **コントローラを表示** から再表示できます。
+
+アプリ内 Reader のウィンドウを閉じると、アプリとローカルサーバーも終了します。外部ブラウザを選択した場合、ブラウザ側のタブはアプリ終了時に自動では閉じません。
 
 ---
 
@@ -21,141 +156,93 @@ Perseus Local Reader.app
 - macOS 13 Ventura 以降
 - Apple Silicon または Intel Mac
 - `/usr/bin/python3` として実行できる Python 3
-- 初回ダウンロード、作品の追加取得、未取得単語の形態解析、更新確認・更新にはインターネット接続が必要
+- 初回取得、作品追加、未取得形態解析、更新確認・更新時のインターネット接続
 
-本文、取得済み作品、取得済み形態解析はローカルに保存されます。保存済みデータはオフラインでも利用できます。
+Swift コントローラは Swift tools version 5.9 を使用してビルドされています。配布 ZIP に含まれるビルド済み `.app` を使う場合、利用者が Swift をインストールする必要はありません。
 
-## 2. ダウンロードと配置
+## 2. インストール
 
-GitHub のリポジトリ画面から **Code → Download ZIP** を選び、ZIPを解凍してください。
+GitHub のリポジトリ画面で **Code → Download ZIP** を選択し、ZIP を解凍します。
 
-解凍後の一番外側のフォルダは、概ね次の構成です。
+想定される最上位構成:
 
 ```text
 perseus-local-reader-main/
 ├── Perseus Local Reader.app
 ├── README.md
 ├── VERSION
-└── .developer/                 Finderでは通常非表示
+└── .developer/                 Finder では通常非表示
 ```
 
-このフォルダは**中身を分離せず、そのまま保管してください**。`Perseus Local Reader.app` だけを別の場所へ移すと、読書用のWebアプリやPythonサーバーを見つけられなくなります。
+この最上位フォルダをそのまま保管してください。
 
 ## 3. 初回起動
 
 `Perseus Local Reader.app` をダブルクリックします。
 
-### 「開発元を確認できないため開けません」と表示された場合
+### Gatekeeper に拒否された場合
 
-このアプリは現時点ではAppleのDeveloper IDによる公証を受けていないため、macOSのGatekeeperにより初回起動が拒否される場合があります。
+このアプリは現時点では Apple Developer ID による署名・公証を行っておらず、ad-hoc 署名です。そのため、初回起動時に macOS が拒否する場合があります。
 
-1. 警告画面を閉じます。
-2. Appleメニュー → **システム設定** → **プライバシーとセキュリティ** を開きます。
-3. セキュリティ欄まで下へ移動します。
-4. `Perseus Local Reader.app` に関する表示の横にある **このまま開く** を押します。
-5. MacのパスワードまたはTouch IDで承認します。
-6. もう一度 `Perseus Local Reader.app` を開きます。
+1. 警告を閉じます。
+2. **システム設定 → プライバシーとセキュリティ** を開きます。
+3. `Perseus Local Reader.app` に関する表示で **このまま開く** を選びます。
+4. Mac のパスワードまたは Touch ID で承認します。
+5. もう一度アプリを開きます。
 
-通常、この確認は最初の一度だけです。
+表示文言は macOS のバージョンにより異なります。
 
-### 「読書環境フォルダを選択」と表示された場合
+### 読書環境フォルダを求められた場合
 
-macOSのApp Translocation、アプリの移動、または保存場所の変更により、アプリが読書環境を自動検出できない場合があります。
+アプリは起動時に次の順で Reader のルートを探します。
 
-その場合は、ZIPを解凍してできた**一番外側のフォルダ**を選択してください。通常は次の名前です。
+1. 実行中の `.app` が置かれているフォルダ
+2. 前回 `UserDefaults` に保存した `readerRoot`
 
-```text
-perseus-local-reader-main
-```
-
-選択するフォルダには、少なくとも次が含まれている必要があります。
+有効な Reader ルートには少なくとも次が必要です。
 
 ```text
-Perseus Local Reader.app
-README.md
-.developer/
+.developer/scripts/server.py
+.developer/app/data/catalog.json
 ```
 
-次のものは選択しません。
+自動検出に失敗した場合は、ZIP を解凍してできた最上位フォルダを選択してください。`.app` 自体、`.developer/`、ZIP ファイル、Downloads フォルダ全体は選択しません。
 
-- `Perseus Local Reader.app` 自体
-- `.developer` フォルダ
-- `.developer/app` や `.developer/scripts`
-- ZIPファイル
-- `Downloads` フォルダ全体
+## 4. 起動時の処理
 
-正しいフォルダは記憶され、通常は次回以降自動的に使用されます。
+1. Reader ルートを特定します。
+2. `/usr/bin/python3` でローカルサーバーを起動します。
+3. 8000–8010 番ポートを昇順に試します。
+4. `127.0.0.1` の URL が HTTP 200 を返すまで待機します。
+5. 設定された表示先で Reader を開きます。
+6. バックグラウンドで更新を確認します。
 
-## 4. 起動中の動作
+サーバー起動コマンド:
 
-アプリを起動すると、次の処理が行われます。
+```text
+/usr/bin/python3 .developer/scripts/server.py <port> --parent-pid <swift-pid>
+```
 
-1. 読書環境のルートフォルダを特定します。
-2. ローカルのPythonサーバーを子プロセスとして起動します。
-3. `127.0.0.1` の8000番から8010番までのうち、利用可能な最初のポートを選びます。
-4. サーバーの応答を確認します。
-5. 既定のブラウザで読書画面を開きます。
-6. バックグラウンドでGitHub上の最新版を確認します。
-
-表示されるURLは、例えば次のいずれかです。
+表示 URL の例:
 
 ```text
 http://127.0.0.1:8000/
 http://127.0.0.1:8001/
 ```
 
-8000番が他のプロセスに使われている場合は、8001番以降が選択されます。
+## 5. 終了とローカルサーバー
 
-### コントローラ画面
+サーバーは Swift アプリの子プロセスです。
 
-Swiftアプリには次のボタンがあります。
+- 通常終了時、Swift 側からサーバーへ終了要求を送信
+- 一定時間終了しない場合は `SIGKILL`
+- Python サーバー側でも親 Swift プロセスの PID を監視
+- サーバーは `127.0.0.1` のみに bind
+- アイドルタイムアウトは 8 時間
 
-- **ブラウザで開く**: 現在の読書URLを既定のブラウザで開きます。
-- **更新を確認**: GitHub上の `main/VERSION` を取得し、現在のアプリ版と比較します。
-- **終了**: Pythonサーバーを停止し、アプリを終了します。
+通常、`Perseus Local Reader.app` が動作している間だけローカルポートが開きます。
 
-赤い閉じるボタンでウィンドウを閉じた場合も、アプリ全体が終了し、サーバーが停止します。
-
-## 5. 終了とポートの扱い
-
-ローカルサーバーはSwiftアプリの子プロセスです。アプリの終了時には、Swift側からサーバーへ終了要求を送り、必要に応じて強制終了します。
-
-さらにPythonサーバー自身もSwiftアプリのPIDを監視します。Swiftアプリが異常終了した場合でも、親プロセスが消えたことを検知するとサーバーを終了します。
-
-したがって、通常は次が成立します。
-
-> `Perseus Local Reader.app` が動作している間だけローカルポートが開く。
-
-ブラウザのタブだけを閉じてもサーバーは終了しません。コントローラ画面の **終了** を押すか、Swiftアプリを閉じてください。
-
-## 6. 作品を読む
-
-起動後のライブラリ画面では、Perseus Digital Libraryの著者・作品・版を検索できます。
-
-- 著者名・作品名で検索
-- 取得済み作品の即時表示
-- 未取得作品のダウンロード
-- ギリシア語原文と翻訳の切り替え
-- 巻・節・行単位の移動
-- 作品内検索
-- ギリシア語単語の形態解析
-- 作品中の単語形態情報の一括取得
-
-プラトン『ソクラテスの弁明』は初期データとして含まれています。
-
-## 7. 形態解析
-
-ギリシア語本文の単語をクリックすると、Perseus Hopper由来の形態解析候補を表示します。
-
-形態解析は文脈に応じた一意の解析結果ではなく、対象語形に対して可能な解析候補を列挙するものです。見出し語、短い語義、品詞、格、数、性、人称、時制、法、態などが、取得できた範囲で表示されます。
-
-取得済みの解析結果は次へ保存され、作品間で共有されます。
-
-```text
-.developer/app/data/morph.json
-```
-
-## 8. ローカルに保存されるデータ
+## 6. ローカル保存場所
 
 ### 作品カタログ
 
@@ -169,7 +256,7 @@ Swiftアプリには次のボタンがあります。
 .developer/app/data/texts/
 ```
 
-作品ごとにJSONファイルとして保存され、利用可能な原文・翻訳の版を含みます。
+作品ごとの JSON に、取得済みの原文・翻訳などの版が保存されます。
 
 ### 形態解析キャッシュ
 
@@ -177,59 +264,109 @@ Swiftアプリには次のボタンがあります。
 .developer/app/data/morph.json
 ```
 
-### 実行ログ
+語形をキーとして保存され、複数作品間で共有されます。
+
+### 取得元 XML・形態解析 HTML キャッシュ・メタデータ
+
+```text
+.developer/data/vendor/texts/
+.developer/data/vendor/morph_html/
+.developer/data/vendor/canonical-greekLit-meta/
+```
+
+### メモ・お気に入り・蛍光マーカー
+
+```text
+.developer/data/user/notes.json
+```
+
+### ログ・一時バックアップ
 
 ```text
 .developer/data/build/
 ```
 
-主なログは次です。
+主なログ:
 
 ```text
-swift-app-server-8000.log
-swift-app-server-8001.log
+swift-app-server-<port>.log
 swift-update.log
 ```
 
-これらの利用者データは現時点では `~/Library/Application Support` ではなく、解凍したリポジトリフォルダ内に保存されます。フォルダ全体を削除すると、ダウンロード済み作品と形態解析キャッシュも失われます。
+これらは現時点では `~/Library/Application Support` ではなく、Reader ルートの内部に保存されます。フォルダ全体を削除すると、本文・形態解析・メモも失われます。
 
-## 9. 更新
+## 7. 形態解析の性質
 
-### 自動確認
+形態解析は、対象語形に対して可能な解析候補を列挙するものです。文脈を使って唯一の解を確定する機能ではありません。
 
-ローカルサーバーの起動後、アプリは次のファイルを短いタイムアウト付きで確認します。
+表示できる範囲で、次を含みます。
+
+- 見出し語
+- 短い語義
+- 品詞
+- 格
+- 数
+- 性
+- 人称
+- 時制
+- 法
+- 態
+
+未取得語形は Perseus Hopper から取得し、以後ローカルキャッシュを利用します。
+
+## 8. 自己更新
+
+### 対応範囲
+
+自己更新機構は 0.1.8 以降からの更新経路を対象として検証されています。0.1.6 以前の古いコピーは更新ヘルパー自体が旧版の可能性があるため、最新版 ZIP の再ダウンロードを推奨します。
+
+### 更新確認
+
+起動後の自動確認と、**更新を確認** による手動確認があります。
+
+確認先:
 
 ```text
 https://raw.githubusercontent.com/sohma-kbysh/perseus-local-reader/main/VERSION
 ```
 
-リモート版が現在のアプリ版より新しい場合、更新するか確認するダイアログを表示します。
-更新確認では、GitHub Rawの古い応答を避けるため、毎回異なるクエリ文字列と `no-cache` ヘッダーを使用します。
+GitHub Raw の古い応答を避けるため、実際のリクエストには毎回異なる時刻クエリを付け、次のキャッシュ制御を使用します。
 
-オフライン、タイムアウト、GitHubへの接続失敗などが起きても、読書機能は停止しません。既存のローカルデータでそのまま利用できます。
+```text
+Cache-Control: no-cache, no-store, max-age=0
+Pragma: no-cache
+```
 
-### 手動確認
-
-コントローラ画面の **更新を確認** を押します。
-
-- 最新の場合: `最新版です`
-- 新版がある場合: 更新確認ダイアログ
-- 接続できない場合: オフラインでも読書を継続できる旨の表示
+オフライン、タイムアウト、GitHub 障害時にも、保存済みデータによる読書は継続できます。
 
 ### 更新処理
 
-**更新する** を選ぶと、更新ヘルパーが起動されます。
+更新を承認すると、更新ヘルパーを一時ディレクトリへコピーし、アプリ終了後も処理を継続します。
 
-1. アプリ終了を待ちます。
-2. `morph.json` と `texts/` を一時退避します。
-3. 最新の `main` を取得します。
-4. プログラムとアプリ本体を更新します。
-5. 利用者データを復元・統合します。
-6. 新しい `Perseus Local Reader.app` を再起動します。
+#### Git checkout の場合
 
-Git cloneした開発用チェックアウトでは `git pull --ff-only origin main` を使用します。通常のDownload ZIP版ではGitHubから `main.zip` を取得して展開します。
+```text
+git fetch origin main
+git pull --ff-only origin main
+```
 
-自動更新で保持される主なデータ:
+利用者データ以外の未コミット変更がある場合、安全のため更新を中止します。
+
+#### Download ZIP の場合
+
+1. GitHub から `main.zip` を取得
+2. 一時ディレクトリへ展開
+3. 利用者データを除外してプログラム部分を更新
+4. `.app` は既存バンドルへ上書きマージせず、完全な別バンドルとしてコピー
+5. FinderInfo、resource fork、quarantine などの拡張属性を除去
+6. `codesign --verify --deep --strict` で検証
+7. 旧アプリを一時退避
+8. 新アプリへ置換
+9. 失敗時は可能な範囲で旧アプリを復元
+10. 配置後に再度署名検証
+11. 更新後のアプリを再起動
+
+### 更新時に保持されるデータ
 
 ```text
 .developer/app/data/morph.json
@@ -238,457 +375,194 @@ Git cloneした開発用チェックアウトでは `git pull --ff-only origin m
 .developer/data/user/
 ```
 
-`.developer/data/user/` には、メモ、お気に入り、蛍光マーカーなどの利用者データが保存されます。更新時には一時退避してから復元されます。
+`morph.json` とダウンロード済み本文は更新前に一時退避し、更新後に復元・統合します。`.developer/data/user/` も明示的に一時退避・復元します。
 
-Gitチェックアウトに、利用者データ以外の未コミット変更がある場合、自動更新は安全のため中止されます。
+0.1.8 → 0.1.9 の ZIP 版更新試験では、アプリ更新、署名検証、`notes.json` および任意テストファイルのハッシュ一致を確認しています。
 
-## 10. ネットワークとプライバシー
+## 9. ネットワークとプライバシー
 
-ローカルHTTPサーバーは次のアドレスにのみbindします。
+ローカル HTTP サーバーは次にのみ bind します。
 
 ```text
 127.0.0.1
 ```
 
-これはMac自身からだけアクセスできるループバックアドレスです。通常、同じLAN上の別端末には公開されません。
+主な外部通信:
 
-外部通信が発生する主な場面は次です。
+- GitHub から作品カタログ・メタデータ・更新情報を取得
+- GitHub からアプリ更新 ZIP を取得
+- Perseus から未取得本文または形態解析を取得
 
-- GitHubから作品・メタデータ・更新情報を取得する場合
-- Perseusから未取得の形態解析を取得する場合
-- GitHubからアプリ更新を取得する場合
+取得済みデータを読むだけの場合、外部通信は不要です。
 
-取得済み本文や解析結果を読むだけの場合、外部通信は不要です。
+## 10. トラブルシューティング
 
-## 11. トラブルシューティング
+### 起動中のアプリを確認する
 
-### ブラウザが開かない
-
-コントローラ画面に表示されたURLをブラウザのアドレス欄へ直接入力します。
-
-```text
-http://127.0.0.1:8000/
+```bash
+ps ax -o pid=,command= | grep '[P]erseusLocalReader'
 ```
 
-実際のポートが8001以降の場合は、画面に表示された番号を使用します。
+同じ Bundle ID のアプリを複数場所に置くと、Launch Services が意図しないコピーを起動する場合があります。テスト時は実行ファイルを直接指定できます。
 
-### サーバーを起動できない
+```bash
+"/path/to/Perseus Local Reader.app/Contents/MacOS/PerseusLocalReader"
+```
 
-次を確認します。
+### サーバーのポートを確認する
 
 ```bash
 lsof -nP -iTCP:8000-8010 -sTCP:LISTEN
 ```
 
-サーバーログも確認します。
+### サーバーログ
 
 ```bash
 tail -n 100 .developer/data/build/swift-app-server-*.log
 ```
 
-### 更新に失敗する
+### 更新ログ
 
 ```bash
 tail -n 200 .developer/data/build/swift-update.log
 ```
 
-Gitチェックアウトでは、未コミット変更が原因で更新が拒否されることがあります。
+### Git checkout で更新が拒否される
 
 ```bash
 git status
 ```
 
-### Python 3が見つからない
+利用者データ以外の未コミット変更を commit、stash、または破棄してください。
 
-現在のSwiftアプリは次を直接起動します。
+### アプリの署名を確認する
 
-```text
-/usr/bin/python3
+```bash
+codesign --verify --deep --strict --verbose=2 \
+  "Perseus Local Reader.app"
 ```
 
-この実行ファイルが使用できない環境では、ローカルサーバーを起動できません。
+### Python 3 を確認する
+
+```bash
+/usr/bin/python3 --version
+```
 
 ---
 
-# English Guide
+# 開発者向け
 
-## 1. Overview
-
-Perseus Local Reader is a macOS application for reading classical Greek texts and their translations locally. It uses openly distributed data from the Perseus Digital Library and provides a searchable library, downloadable works, translation switching, citation-aware navigation, in-work search, and on-demand morphological analysis.
-
-The public user-facing entry point is a single application:
+## 構成
 
 ```text
-Perseus Local Reader.app
-```
-
-The previous separate Open, Close, and Update applications are no longer required. The Swift application starts and supervises the local Python server, opens the reader in the default browser, checks GitHub for updates, and shuts the server down when the application exits.
-
-The application preserves downloaded works and cached morphology data across normal launches and supported updates. Already downloaded content remains available for offline reading.
-
-## 2. System requirements
-
-- macOS 13 Ventura or later;
-- Apple Silicon or Intel Mac;
-- a working Python 3 executable at `/usr/bin/python3`;
-- network access when downloading works, fetching uncached morphology, checking for updates, or applying updates.
-
-The controller is built with Swift Package Manager using Swift tools version 5.9. End users do not need to build the application when using a repository ZIP that already contains the prebuilt `.app` bundle.
-
-## 3. Installation
-
-Download the repository ZIP from GitHub and extract it without separating its contents.
-
-Expected top-level layout:
-
-```text
-perseus-local-reader-main/
-├── Perseus Local Reader.app
-├── README.md
-├── VERSION
-└── .developer/
-```
-
-The `.app` bundle is not currently a fully self-contained distribution. It expects the adjacent `.developer` runtime directory to remain available. Moving only the `.app` bundle elsewhere will prevent runtime discovery unless the user subsequently selects the correct repository root.
-
-## 4. First launch and Gatekeeper
-
-The distributed application is currently ad-hoc signed rather than signed and notarized with an Apple Developer ID. Gatekeeper may therefore block the first launch.
-
-To authorize it:
-
-1. dismiss the initial warning;
-2. open System Settings;
-3. open Privacy & Security;
-4. locate the blocked-app notice;
-5. choose Open Anyway;
-6. authenticate;
-7. launch `Perseus Local Reader.app` again.
-
-The exact wording varies by macOS version.
-
-## 5. Reader-root discovery
-
-At startup, the Swift controller searches for a valid reader root in this order:
-
-1. the directory containing the running `.app` bundle;
-2. the path previously stored in `UserDefaults`.
-
-A directory is considered valid when it contains both:
-
-```text
-.developer/scripts/server.py
-.developer/app/data/catalog.json
-```
-
-If automatic discovery fails, the application presents an `NSOpenPanel`. The user must select the outermost extracted repository folder, not the `.app` bundle or `.developer` itself.
-
-The selected path is persisted under the `readerRoot` user-defaults key.
-
-## 6. Process and server lifecycle
-
-The Swift controller starts the Python server with `Foundation.Process`:
-
-```text
-/usr/bin/python3 .developer/scripts/server.py <port> --parent-pid <swift-pid>
-```
-
-It attempts ports 8000 through 8010 in ascending order. Standard output and standard error are redirected to:
-
-```text
-.developer/data/build/swift-app-server-<port>.log
-```
-
-After spawning the process, the controller polls the selected loopback URL until it receives HTTP 200. It then:
-
-1. marks the controller status as running;
-2. enables the Open in Browser button;
-3. opens the URL through `NSWorkspace`;
-4. starts a background update check.
-
-The Python server binds to:
-
-```text
-127.0.0.1:<selected-port>
-```
-
-It is not intentionally exposed on all interfaces.
-
-### Normal shutdown
-
-When the application terminates, the controller sends a termination signal to the child process. It waits briefly and sends `SIGKILL` if the process fails to exit.
-
-### Abnormal parent termination
-
-The Python server receives the Swift process identifier through `--parent-pid`. A daemon watcher periodically checks whether that PID still exists. When the parent disappears, the server calls `shutdown()`.
-
-This parent-watch mode replaces the historical eight-hour idle shutdown when the server is launched by the Swift application. The idle timeout remains available when `server.py` is launched without `--parent-pid`.
-
-## 7. Controller interface
-
-The controller exposes three primary actions:
-
-- **Open in Browser**: opens the active loopback URL;
-- **Check for Updates**: performs an explicit version check;
-- **Quit**: terminates the server and exits the application.
-
-The application is configured to terminate after its final window is closed. Closing the red window button therefore also terminates the server.
-
-Closing only the browser tab does not terminate the controller or the Python process.
-
-## 8. Reader functionality
-
-The browser interface provides:
-
-- offline catalog search;
-- browsing by author and work;
-- on-demand download of all available versions of a work;
-- switching between Greek editions and available translations;
-- citation-aware navigation for prose, epic, and drama;
-- in-work text search;
-- clickable Greek tokens;
-- on-demand morphology retrieval;
-- bulk morphology retrieval for the currently open work.
-
-Plato's *Apology* is included as an initially downloaded work.
-
-## 9. Data model and persistence
-
-### Catalog
-
-```text
-.developer/app/data/catalog.json
-```
-
-Generated from CTS metadata and searched locally by the library interface.
-
-### Downloaded works
-
-```text
-.developer/app/data/texts/<work-id>.json
-```
-
-Each work file contains the converted content for the downloaded editions and translations associated with that work.
-
-### Morphology cache
-
-```text
-.developer/app/data/morph.json
-```
-
-Morphology entries are keyed by encountered word form and shared across works.
-
-### Runtime and update logs
-
-```text
-.developer/data/build/
-```
-
-The current implementation stores user data inside the extracted repository directory rather than under `~/Library/Application Support`. Deleting or replacing the entire repository folder without preserving these files will delete the local library cache.
-
-## 10. Morphology semantics
-
-Morphology is obtained from Perseus Hopper. Results represent possible analyses for the submitted form; they are not contextually disambiguated parses of the sentence.
-
-Depending on the returned data, an entry may include:
-
-- lemma;
-- short lexical gloss;
-- part of speech;
-- case;
-- number;
-- gender;
-- person;
-- tense;
-- mood;
-- voice;
-- degree;
-- dialect or other annotations.
-
-A short definition belongs to the lemma entry and should not be interpreted as a sentence-level translation of the selected token.
-
-## 11. Version checking
-
-The app bundle embeds its local version in `CFBundleShortVersionString`, generated from the repository-root `VERSION` file during the build.
-
-The controller requests:
-
-```text
-https://raw.githubusercontent.com/sohma-kbysh/perseus-local-reader/main/VERSION
-```
-
-The request:
-
-- ignores the local URL cache;
-- has a short timeout;
-- runs after the reader server has started;
-- does not block local reading on failure.
-
-Versions are compared component-wise as numeric dotted versions. If the remote version is newer, the user is prompted to update. If the check fails, manual status reports that offline reading remains available.
-
-## 12. Update architecture
-
-The Swift controller does not overwrite itself while running. Instead it:
-
-1. copies `.developer/scripts/apply_swift_update.sh` to a temporary location;
-2. starts that temporary helper as an independent process;
-3. passes the current application PID, repository root, and app path;
-4. terminates the Swift application.
-
-The helper waits until the application process exits before modifying files.
-
-### Git-checkout update path
-
-When `.git` exists:
-
-1. back up morphology and downloaded works;
-2. reject the update if non-user-data changes are uncommitted;
-3. restore the tracked `morph.json` before pulling when necessary;
-4. execute `git fetch origin main`;
-5. execute `git pull --ff-only origin main`;
-6. merge the saved morphology cache;
-7. restore downloaded works;
-8. reopen the updated application.
-
-### ZIP-installation update path
-
-When `.git` does not exist:
-
-1. download the `main` branch ZIP;
-2. extract it to a temporary directory;
-3. synchronize the new distribution into the current root;
-4. exclude local morphology, downloaded works, runtime logs, vendor caches, and `.git`;
-5. restore and merge user data;
-6. reopen the updated application.
-
-Update logs are written to:
-
-```text
-.developer/data/build/swift-update.log
-```
-
-## 13. Network boundary
-
-The local HTTP service listens only on the loopback address. External network requests may be made for:
-
-- GitHub-hosted version and update files;
-- Perseus text or metadata resources;
-- Perseus Hopper morphology pages.
-
-The reader does not require an external application server for already cached content.
-
-## 14. Repository architecture
-
-```text
-Perseus Local Reader.app/              prebuilt user-facing controller
-VERSION                                distribution/application version
-README.md
 .developer/
-  app/
-    index.html                         library interface
-    library.js
-    reader.html                        reading interface
-    reader.js
-    morph.html
-    morph.js
-    styles.css
-    data/
-      catalog.json
-      texts/
-      morph.json
-  scripts/
-    server.py                          local HTTP/API server
-    text_store.py                      work download and conversion orchestration
-    tei_convert.py                     TEI/EpiDoc to reader JSON conversion
-    fetch_morph.py                     morphology retrieval and cache update
-    merge_morph_cache.py               cache merge used during update
-    apply_swift_update.sh              detached self-update helper
-    start_reader.sh                    optional command-line launcher
-    stop_reader.sh                     optional command-line stop helper
-  swift-app/
-    Package.swift
-    Sources/
-      PerseusLocalReader/
-        main.swift                     AppKit controller and update UI
-    Resources/
-      AppIcon.icns
-    build_app.sh                       release build and app-bundle assembly
-  data/
-    build/                              runtime logs and transient state
-    vendor/                             development/runtime source caches
+├── app/                       Web UI とローカルデータ
+├── scripts/                   Python サーバー、取得処理、更新処理
+├── swift-app/                 AppKit / WebKit コントローラ
+└── data/
+    ├── build/                 ログ・一時バックアップ
+    ├── user/                  メモ等の利用者データ
+    └── vendor/                取得元データとキャッシュ
 ```
 
-## 15. Developer build
-
-Requirements:
-
-- macOS;
-- Xcode Command Line Tools or Xcode;
-- Swift 5.9-compatible toolchain.
-
-Build the release application from the repository root:
-
-```bash
-.developer/swift-app/build_app.sh
-```
-
-The script:
-
-1. reads `VERSION`;
-2. runs `swift build -c release`;
-3. assembles `Perseus Local Reader.app`;
-4. writes `Info.plist`;
-5. embeds the version;
-6. copies the application icon when available;
-7. applies an ad-hoc code signature.
-
-Launch the result:
-
-```bash
-open "Perseus Local Reader.app"
-```
-
-## 16. Release procedure
-
-For a new release:
-
-1. update the root `VERSION` file;
-2. ensure `updateBranch` in `main.swift` is `main`;
-3. rebuild `Perseus Local Reader.app`;
-4. test startup, browser opening, shutdown, port release, manual version checking, and self-update;
-5. commit the Swift source, Python changes, update helper, `VERSION`, README, icon resource, and rebuilt `.app` bundle together;
-6. push to `main`.
-
-Example:
-
-```bash
-echo "0.2.0" > VERSION
-.developer/swift-app/build_app.sh
-git add -A
-git commit -m "Release Perseus Local Reader 0.2.0"
-git push origin main
-```
-
-The prebuilt app bundle and `VERSION` must be updated in the same commit. Otherwise users may receive a distribution whose executable version does not match the remote update version.
-
-## 17. Manual server execution
-
-For debugging without the Swift controller:
-
-```bash
-python3 .developer/scripts/server.py 8000
-```
-
-In this mode no parent PID is supplied, so the historical idle-shutdown watcher is used.
-
-Then open:
+主要ファイル:
 
 ```text
-http://127.0.0.1:8000/
+.developer/app/index.html
+.developer/app/library.js
+.developer/app/reader.html
+.developer/app/reader.js
+.developer/app/reader-notes.js
+.developer/app/morph.html
+.developer/app/morph.js
+.developer/app/morph-notes.js
+.developer/app/notes.html
+.developer/app/notes.js
+.developer/app/data-manager.html
+.developer/app/data-manager.js
+.developer/scripts/server.py
+.developer/scripts/apply_swift_update.sh
+.developer/swift-app/Sources/PerseusLocalReader/main.swift
+.developer/swift-app/build_app.sh
 ```
 
-## 18. Data sources
+## ビルド
 
-- Texts and CTS metadata: `PerseusDL/canonical-greekLit`
-- Morphology: Perseus Hopper morphology service
-- Lemma short definitions: Perseus Hopper `hib_lemmas.sql` data where available
+```bash
+.developer/swift-app/build_app.sh
+```
+
+ビルドスクリプトは `VERSION` を読み、`CFBundleShortVersionString` と `CFBundleVersion` に設定し、リポジトリ直下の `Perseus Local Reader.app` を再生成します。
+
+現時点の署名方式:
+
+```text
+codesign --force --deep --sign -
+```
+
+## 基本検査
+
+```bash
+python3 -m py_compile .developer/scripts/server.py
+
+node --check .developer/app/library.js
+node --check .developer/app/reader.js
+node --check .developer/app/reader-notes.js
+node --check .developer/app/morph.js
+node --check .developer/app/morph-notes.js
+node --check .developer/app/notes.js
+node --check .developer/app/data-manager.js
+
+/bin/zsh -n .developer/scripts/apply_swift_update.sh
+
+swift build \
+  --package-path .developer/swift-app \
+  -c release
+
+git diff --check
+```
+
+## リリース前確認
+
+```bash
+codesign --verify --deep --strict --verbose=2 \
+  "Perseus Local Reader.app"
+
+/usr/libexec/PlistBuddy \
+  -c 'Print :CFBundleShortVersionString' \
+  "Perseus Local Reader.app/Contents/Info.plist"
+
+cat VERSION
+```
+
+アプリ内バージョンと `VERSION` を一致させ、同じ commit に含めてください。
+
+---
+
+# English summary
+
+Perseus Local Reader 0.1.9 is a local macOS reading environment for classical texts distributed through the Perseus ecosystem.
+
+Current features include:
+
+- searchable author and work catalog;
+- downloadable multi-version works;
+- offline reading of downloaded content;
+- version switching and citation-aware navigation;
+- in-work search;
+- clickable Greek morphology;
+- whole-work and selection-based morphology fetching;
+- adjustable text size;
+- word and passage notes;
+- empty-memo favorites/highlights;
+- occurrence-only or work-wide exact-form word highlighting;
+- searchable, editable, sortable, and bulk-deletable notes;
+- saved-data inspection and deletion;
+- work-scoped morphology deletion that preserves forms shared by other downloaded works;
+- an embedded `WKWebView` reader;
+- selectable embedded, default-browser, or specific-browser opening;
+- local-only HTTP serving on `127.0.0.1`;
+- signed-bundle verification during self-update;
+- explicit preservation of downloaded texts, morphology, vendor caches, and user notes during supported updates.
+
+The application is currently ad-hoc signed and not notarized with an Apple Developer ID. Keep the extracted repository folder intact because the `.app` uses the adjacent `.developer/` runtime directory.
