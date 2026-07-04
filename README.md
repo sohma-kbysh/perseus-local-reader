@@ -10,13 +10,17 @@ On macOS, double-click:
 Open Plato Apology.command
 ```
 
-It starts the local reader and opens your browser.
+It starts the local reader and opens your browser. The reader stops itself
+automatically after about 8 hours without access.
 
-When you are done, double-click:
+To update this folder from GitHub, double-click:
 
 ```text
-Close Plato Apology.command
+Update Plato Apology.command
 ```
+
+The updater preserves locally cached morphology data, pulls the latest files
+from GitHub, and opens the reader again.
 
 If macOS asks whether the file may run, choose to open it. The reader runs only
 on your own computer at `http://127.0.0.1:8000/`.
@@ -43,16 +47,14 @@ Open Plato Apology.app
 
 It starts the local reader in the background and opens the browser.
 
-When you are done, double-click:
+To update from GitHub, double-click:
 
 ```text
-Close Plato Apology.app
+Update Plato Apology.app
 ```
 
-The other `.app` files in this folder are build leftovers and can be ignored.
-
 The local reader also stops itself automatically after about 8 hours without
-access, so forgetting to use the close app is usually fine.
+access.
 
 ## Terminal
 
