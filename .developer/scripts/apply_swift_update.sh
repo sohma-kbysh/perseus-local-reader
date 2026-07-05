@@ -4,6 +4,7 @@ set -euo pipefail
 APP_PID="$1"
 REPO_ROOT="$2"
 APP_PATH="$3"
+UI_LANGUAGE="${4:-en}"
 
 OWNER="sohma-kbysh"
 REPO="perseus-local-reader"
@@ -20,6 +21,57 @@ exec >>"$LOG" 2>&1
 
 fail() {
   local message="$1"
+
+  if [[ "$UI_LANGUAGE" != "ja" ]]; then
+    case "$message" in
+      "ローカルに未コミットの変更があるため、自動更新を中止しました。")
+        message="The automatic update was stopped because the Git checkout contains uncommitted changes."
+        ;;
+      "最新版のダウンロードに失敗しました。")
+        message="The latest version could not be downloaded."
+        ;;
+      "ダウンロードした更新ファイルを展開できませんでした。")
+        message="The downloaded update archive could not be extracted."
+        ;;
+      "ダウンロードした更新にアプリ本体が含まれていませんでした。")
+        message="The downloaded update does not contain the application bundle."
+        ;;
+      "更新用アプリを作業フォルダへコピーできませんでした。")
+        message="The update application could not be copied to the working directory."
+        ;;
+      "ダウンロードした更新用アプリの署名を検証できませんでした。")
+        message="The signature of the downloaded update application could not be verified."
+        ;;
+      "現在の更新元アプリを退避できませんでした。")
+        message="The current source application could not be moved aside."
+        ;;
+      "更新元アプリを新しい署名済みバンドルへ置換できませんでした。")
+        message="The source application could not be replaced with the new signed bundle."
+        ;;
+      "更新後のアプリが見つかりませんでした。")
+        message="The updated application could not be found."
+        ;;
+      "配布された更新用アプリの署名を検証できませんでした。")
+        message="The signature of the distributed update application could not be verified."
+        ;;
+      "更新用アプリを一時配置できませんでした。")
+        message="The update application could not be placed in the temporary location."
+        ;;
+      "一時配置した更新用アプリの署名を検証できませんでした。")
+        message="The signature of the temporarily placed update application could not be verified."
+        ;;
+      "現在のアプリを更新準備用の場所へ移動できませんでした。")
+        message="The current application could not be moved to the update backup location."
+        ;;
+      "更新後のアプリを所定の場所へ配置できませんでした。")
+        message="The updated application could not be placed in its destination."
+        ;;
+      "配置後のアプリ署名を検証できませんでした。")
+        message="The application signature could not be verified after installation."
+        ;;
+    esac
+  fi
+
   /usr/bin/osascript -e \
     "display dialog \"${message}\" buttons {\"OK\"} default button \"OK\" with icon stop" \
     >/dev/null 2>&1 || true
