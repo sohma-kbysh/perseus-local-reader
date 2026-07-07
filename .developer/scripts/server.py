@@ -12,6 +12,13 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, unquote, urlparse
 
+import os
+import sys
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
 import text_store
 from fetch_morph import cache_path, fetch_one, load_forms, load_morphs, write_output
 
@@ -1023,17 +1030,42 @@ def start_idle_shutdown_watch(server):
     thread.start()
 
 
+def pid_is_alive(pid):
+    if os.name == "nt":
+        # os.kill(pid, 0) on Windows calls TerminateProcess and would kill
+        # the parent shell, so query the process handle instead.
+        import ctypes
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        ERROR_ACCESS_DENIED = 5
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return kernel32.GetLastError() == ERROR_ACCESS_DENIED
+        try:
+            exit_code = ctypes.c_ulong()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                return True
+            return exit_code.value == STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    return True
+
+
 def start_parent_shutdown_watch(server, parent_pid):
     def watch():
         while True:
             time.sleep(2)
-            try:
-                os.kill(parent_pid, 0)
-            except ProcessLookupError:
+            if not pid_is_alive(parent_pid):
                 server.shutdown()
                 return
-            except PermissionError:
-                pass
 
     thread = threading.Thread(target=watch, daemon=True)
     thread.start()

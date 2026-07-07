@@ -1,0 +1,14 @@
+# Windows shell runtime dependencies for shell.py.
+#
+# Pinned against the bootstrapped embeddable Python 3.12 runtime described in
+# .developer/windows-app/DESIGN.md (see §6, §7). Installed by bootstrap.ps1 via:
+#   python.exe -m pip install -r requirements.txt
+#
+# pywebview 6.2.1 is the latest stable release on PyPI as of this pin
+# (checked via https://pypi.org/pypi/pywebview/json on 2026-07-08). shell.py's
+# use of webview.menu.Menu/MenuAction/MenuSeparator, create_window(text_select=,
+# js_api=), start(menu=), window.events.loaded, get_current_url, load_url, and
+# evaluate_js has been verified present in 6.2.1. Do not bump the major version
+# without re-checking that API surface and re-running the Windows checklist in
+# DESIGN.md §7.
+pywebview==6.2.1
