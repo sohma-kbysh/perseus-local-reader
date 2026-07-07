@@ -327,7 +327,7 @@
   }
 
   function installSelector() {
-    if (document.body?.classList.contains("morph-body")) return;
+    if (!document.body?.classList.contains("library-body")) return;
     if (document.getElementById("plrLanguageSelect")) return;
 
     const wrapper = document.createElement("label");
@@ -354,13 +354,8 @@
     select.addEventListener("change", () => setLanguage(select.value));
     wrapper.append(label, select);
 
-    const host =
-      document.querySelector(".library-header-actions") ||
-      document.querySelector(".reader-side-tools") ||
-      document.querySelector(".notes-topbar") ||
-      document.querySelector(".manager-topbar") ||
-      document.querySelector(".topbar") ||
-      document.body;
+    const host = document.querySelector(".library-header-actions");
+    if (!host) return;
     host.appendChild(wrapper);
   }
 

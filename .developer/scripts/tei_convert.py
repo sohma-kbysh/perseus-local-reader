@@ -202,7 +202,9 @@ class Serializer:
             )
             anchor = ""
             try:
-                if int(number) % 25 == 0 or int(number) == 1:
+                if self.bottom_unit == "line" and (
+                    int(number) % 25 == 0 or int(number) == 1
+                ):
                     anchor_id = f"ln-{number}"
                     self.add_anchor(anchor_id, number)
                     anchor = f' id="{anchor_id}"'
